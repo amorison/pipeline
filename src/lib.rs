@@ -42,19 +42,15 @@ impl From<NewFileToProcess> for Received {
     }
 }
 
-pub type ServerToClient = SymmetricallyFramed<
-    FramedWrite<OwnedWriteHalf, LengthDelimitedCodec>,
-    Received,
-    SymmetricalJson<Received>,
->;
+pub type ReadFramedJson<T> =
+    SymmetricallyFramed<FramedRead<OwnedReadHalf, LengthDelimitedCodec>, T, SymmetricalJson<T>>;
 
-pub type ServerFromClient = SymmetricallyFramed<
-    FramedRead<OwnedReadHalf, LengthDelimitedCodec>,
-    NewFileToProcess,
-    SymmetricalJson<NewFileToProcess>,
->;
+pub type WriteFramedJson<T> =
+    SymmetricallyFramed<FramedWrite<OwnedWriteHalf, LengthDelimitedCodec>, T, SymmetricalJson<T>>;
 
-pub fn server_side_channel(stream: TcpStream) -> (ServerFromClient, ServerToClient) {
+pub fn server_side_channel(
+    stream: TcpStream,
+) -> (ReadFramedJson<NewFileToProcess>, WriteFramedJson<Received>) {
     let (socket_r, socket_w) = stream.into_split();
     let read_half = tokio_serde::SymmetricallyFramed::new(
         FramedRead::new(socket_r, LengthDelimitedCodec::new()),
@@ -67,7 +63,10 @@ pub fn server_side_channel(stream: TcpStream) -> (ServerFromClient, ServerToClie
     (read_half, write_half)
 }
 
-pub async fn processing_pipeline(file: NewFileToProcess, channel: Arc<Mutex<ServerToClient>>) {
+pub async fn processing_pipeline(
+    file: NewFileToProcess,
+    channel: Arc<Mutex<WriteFramedJson<Received>>>,
+) {
     let received: Received = file.into();
     channel.lock().await.send(received).await.unwrap();
 }
