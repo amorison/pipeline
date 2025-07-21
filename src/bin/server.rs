@@ -1,35 +1,18 @@
 use std::sync::Arc;
 
 use futures_util::TryStreamExt;
-use pipeline::{NewFileToProcess, Received};
 use tokio::{
     net::{TcpListener, TcpStream},
     sync::Mutex,
 };
-use tokio_serde::formats::SymmetricalJson;
-use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 
-async fn handle_client(socket: TcpStream) {
-    let (socket_r, socket_w) = socket.into_split();
+async fn handle_client(stream: TcpStream) {
+    let (mut from_client, to_client) = pipeline::server_side_channel(stream);
+    let to_client = Arc::new(Mutex::new(to_client));
 
-    let length_limited = FramedRead::new(socket_r, LengthDelimitedCodec::new());
-
-    let mut deserialized = tokio_serde::SymmetricallyFramed::new(
-        length_limited,
-        SymmetricalJson::<NewFileToProcess>::default(),
-    );
-
-    let ll = FramedWrite::new(socket_w, LengthDelimitedCodec::new());
-    let server_to_client = {
-        let serialized =
-            tokio_serde::SymmetricallyFramed::new(ll, SymmetricalJson::<Received>::default());
-        Arc::new(Mutex::new(serialized))
-    };
-
-    while let Some(msg) = deserialized.try_next().await.unwrap() {
+    while let Some(msg) = from_client.try_next().await.unwrap() {
         println!("Server got: {:?}", msg);
-        let s2c = server_to_client.clone();
-        tokio::spawn(async move { pipeline::processing_pipeline(msg, s2c).await });
+        tokio::spawn(pipeline::processing_pipeline(msg, to_client.clone()));
     }
 }
 

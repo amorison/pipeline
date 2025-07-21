@@ -4,9 +4,15 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
-use tokio::{net::tcp::OwnedWriteHalf, sync::Mutex};
+use tokio::{
+    net::{
+        TcpStream,
+        tcp::{OwnedReadHalf, OwnedWriteHalf},
+    },
+    sync::Mutex,
+};
 use tokio_serde::{SymmetricallyFramed, formats::SymmetricalJson};
-use tokio_util::codec::{FramedWrite, LengthDelimitedCodec};
+use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileSpec {
@@ -36,18 +42,32 @@ impl From<NewFileToProcess> for Received {
     }
 }
 
-pub async fn processing_pipeline(
-    file: NewFileToProcess,
-    channel: Arc<
-        Mutex<
-            SymmetricallyFramed<
-                FramedWrite<OwnedWriteHalf, LengthDelimitedCodec>,
-                Received,
-                SymmetricalJson<Received>,
-            >,
-        >,
-    >,
-) {
+pub type ServerToClient = SymmetricallyFramed<
+    FramedWrite<OwnedWriteHalf, LengthDelimitedCodec>,
+    Received,
+    SymmetricalJson<Received>,
+>;
+
+pub type ServerFromClient = SymmetricallyFramed<
+    FramedRead<OwnedReadHalf, LengthDelimitedCodec>,
+    NewFileToProcess,
+    SymmetricalJson<NewFileToProcess>,
+>;
+
+pub fn server_side_channel(stream: TcpStream) -> (ServerFromClient, ServerToClient) {
+    let (socket_r, socket_w) = stream.into_split();
+    let read_half = tokio_serde::SymmetricallyFramed::new(
+        FramedRead::new(socket_r, LengthDelimitedCodec::new()),
+        SymmetricalJson::<NewFileToProcess>::default(),
+    );
+    let write_half = tokio_serde::SymmetricallyFramed::new(
+        FramedWrite::new(socket_w, LengthDelimitedCodec::new()),
+        SymmetricalJson::<Received>::default(),
+    );
+    (read_half, write_half)
+}
+
+pub async fn processing_pipeline(file: NewFileToProcess, channel: Arc<Mutex<ServerToClient>>) {
     let received: Received = file.into();
     channel.lock().await.send(received).await.unwrap();
 }
