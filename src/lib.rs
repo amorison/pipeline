@@ -48,17 +48,15 @@ pub type ReadFramedJson<T> =
 pub type WriteFramedJson<T> =
     SymmetricallyFramed<FramedWrite<OwnedWriteHalf, LengthDelimitedCodec>, T, SymmetricalJson<T>>;
 
-pub fn server_side_channel(
-    stream: TcpStream,
-) -> (ReadFramedJson<NewFileToProcess>, WriteFramedJson<Received>) {
+pub fn framed_json_channel<R, W>(stream: TcpStream) -> (ReadFramedJson<R>, WriteFramedJson<W>) {
     let (socket_r, socket_w) = stream.into_split();
     let read_half = tokio_serde::SymmetricallyFramed::new(
         FramedRead::new(socket_r, LengthDelimitedCodec::new()),
-        SymmetricalJson::<NewFileToProcess>::default(),
+        SymmetricalJson::<R>::default(),
     );
     let write_half = tokio_serde::SymmetricallyFramed::new(
         FramedWrite::new(socket_w, LengthDelimitedCodec::new()),
-        SymmetricalJson::<Received>::default(),
+        SymmetricalJson::<W>::default(),
     );
     (read_half, write_half)
 }
