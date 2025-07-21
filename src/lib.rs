@@ -1,5 +1,12 @@
+use futures_util::SinkExt;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
+use tokio::{net::tcp::OwnedWriteHalf, sync::Mutex};
+use tokio_serde::{SymmetricallyFramed, formats::SymmetricalJson};
+use tokio_util::codec::{FramedWrite, LengthDelimitedCodec};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileSpec {
@@ -27,4 +34,20 @@ impl From<NewFileToProcess> for Received {
         let NewFileToProcess(spec) = value;
         Received(spec)
     }
+}
+
+pub async fn processing_pipeline(
+    file: NewFileToProcess,
+    channel: Arc<
+        Mutex<
+            SymmetricallyFramed<
+                FramedWrite<OwnedWriteHalf, LengthDelimitedCodec>,
+                Received,
+                SymmetricalJson<Received>,
+            >,
+        >,
+    >,
+) {
+    let received: Received = file.into();
+    channel.lock().await.send(received).await.unwrap();
 }
