@@ -17,6 +17,6 @@ async fn main() {
     to_server.send(nfp2).await.unwrap();
 
     while let Some(msg) = from_server.try_next().await.unwrap() {
-        println!("Client got: {:?}", msg);
+        println!("Client got: {msg:?}");
     }
 }

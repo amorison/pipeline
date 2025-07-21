@@ -13,7 +13,7 @@ async fn handle_client(stream: TcpStream) {
     let to_client = Arc::new(Mutex::new(to_client));
 
     while let Some(msg) = from_client.try_next().await.unwrap() {
-        println!("Server got: {:?}", msg);
+        println!("Server got: {msg:?}");
         tokio::spawn(pipeline::processing_pipeline(msg, to_client.clone()));
     }
 }
@@ -26,7 +26,7 @@ async fn main() {
 
     loop {
         let (socket, addr) = listener.accept().await.unwrap();
-        println!("Server got connection request from {:?}", addr);
+        println!("Server got connection request from {addr:?}");
         tokio::spawn(handle_client(socket));
     }
 }
