@@ -48,11 +48,10 @@ async fn main() -> io::Result<()> {
                 if client_path.extension().is_some_and(|ext| ext == "mrc")
                     && let Ok(last_modif) = client_path.metadata()?.modified()?.elapsed()
                     && last_modif > Duration::from_secs(10)
+                    && insert_clone(&db, &client_path)
                 {
-                    if insert_clone(&db, &client_path) {
-                        let nfp = NewFileToProcess::new(client_path)?;
-                        to_server.send(nfp).await.unwrap();
-                    }
+                    let nfp = NewFileToProcess::new(client_path)?;
+                    to_server.send(nfp).await.unwrap();
                 }
             }
         }
