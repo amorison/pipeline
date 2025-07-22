@@ -44,13 +44,15 @@ async fn main() -> io::Result<()> {
         let mut files = fs::read_dir("./dummy-folder/client").await?;
         while let Some(entry) = files.next_entry().await? {
             if entry.file_type().await?.is_file() {
-                let client_path = entry.path();
+                let client_path = entry.path().canonicalize()?;
                 if client_path.extension().is_some_and(|ext| ext == "mrc")
                     && let Ok(last_modif) = client_path.metadata()?.modified()?.elapsed()
                     && last_modif > Duration::from_secs(10)
                     && insert_clone(&db, &client_path)
                 {
-                    let nfp = NewFileToProcess::new(client_path)?;
+                    let mut server_path = PathBuf::from("./dummy-folder/server");
+                    server_path.push(client_path.file_name().unwrap());
+                    let nfp = NewFileToProcess::new(client_path, server_path)?;
                     to_server.send(nfp).await.unwrap();
                 }
             }

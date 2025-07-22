@@ -28,19 +28,15 @@ pub struct FileSpec {
 pub struct NewFileToProcess(FileSpec);
 
 impl NewFileToProcess {
-    pub fn new<P: AsRef<Path>>(path: P) -> io::Result<Self> {
-        let path = path.as_ref().canonicalize()?;
-
+    pub fn new(client_path: PathBuf, server_path: PathBuf) -> io::Result<Self> {
         let mut hasher = Sha256::new();
         // FIXME: check whether it is worthwhile to make this non-blocking
-        let file = std::fs::File::open(&path)?;
+        let file = std::fs::File::open(&client_path)?;
         let mut reader = io::BufReader::new(file);
         io::copy(&mut reader, &mut hasher)?;
 
-        let mut server_path = PathBuf::from("./dummy-folder/server");
-        server_path.push(path.file_name().unwrap());
         let nfp = NewFileToProcess(FileSpec {
-            client_path: path,
+            client_path,
             server_path,
             sha256_digest: hasher.finalize().to_vec(),
         });
