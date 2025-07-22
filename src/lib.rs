@@ -1,6 +1,8 @@
 use futures_util::SinkExt;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::{
+    io,
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
@@ -18,18 +20,26 @@ use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileSpec {
     remote_path: PathBuf,
-    sha256_digest: String,
+    sha256_digest: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct NewFileToProcess(FileSpec);
 
 impl NewFileToProcess {
-    pub fn new<P: AsRef<Path>>(path: P) -> Self {
-        NewFileToProcess(FileSpec {
+    pub fn new<P: AsRef<Path>>(path: P) -> io::Result<Self> {
+        let mut hasher = Sha256::new();
+
+        // FIXME: check whether it is worthwhile to make this non-blocking
+        let file = std::fs::File::open(&path)?;
+        let mut reader = io::BufReader::new(file);
+        io::copy(&mut reader, &mut hasher)?;
+
+        let nfp = NewFileToProcess(FileSpec {
             remote_path: PathBuf::from(path.as_ref()),
-            sha256_digest: "000".to_owned(),
-        })
+            sha256_digest: hasher.finalize().to_vec(),
+        });
+        Ok(nfp)
     }
 }
 

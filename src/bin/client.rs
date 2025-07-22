@@ -53,7 +53,7 @@ async fn main() -> io::Result<()> {
                 {
                     if insert_clone(&db, &path) {
                         let nfp = NewFileToProcess::new(path);
-                        to_server.send(nfp).await.unwrap();
+                        to_server.send(nfp?).await.unwrap();
                     }
                 }
             }
