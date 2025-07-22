@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
+    time::Duration,
 };
 use tokio::{
     net::{
@@ -42,6 +43,12 @@ impl From<NewFileToProcess> for Received {
     }
 }
 
+impl Received {
+    pub fn path(&self) -> &Path {
+        &self.0.remote_path
+    }
+}
+
 pub type ReadFramedJson<T> =
     SymmetricallyFramed<FramedRead<OwnedReadHalf, LengthDelimitedCodec>, T, SymmetricalJson<T>>;
 
@@ -66,5 +73,6 @@ pub async fn processing_pipeline(
     channel: Arc<Mutex<WriteFramedJson<Received>>>,
 ) {
     let received: Received = file.into();
+    tokio::time::sleep(Duration::from_secs(2)).await; // to simulate processing
     channel.lock().await.send(received).await.unwrap();
 }

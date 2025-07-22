@@ -13,9 +13,10 @@ use tokio::{fs, net::TcpStream};
 
 type Db = Arc<Mutex<HashSet<PathBuf>>>;
 
-async fn listen_to_server(mut from_server: ReadFramedJson<Received>) {
+async fn listen_to_server(mut from_server: ReadFramedJson<Received>, db: Db) {
     while let Some(msg) = from_server.try_next().await.unwrap() {
-        println!("Client got: {msg:?}");
+        let in_db = db.try_lock().unwrap().remove(msg.path());
+        println!("Client got: {msg:?}, was in db: {in_db}");
     }
 }
 
@@ -37,7 +38,7 @@ async fn main() -> io::Result<()> {
 
     let db = Arc::new(Mutex::new(HashSet::new()));
 
-    tokio::spawn(listen_to_server(from_server));
+    tokio::spawn(listen_to_server(from_server, db.clone()));
 
     loop {
         let mut files = fs::read_dir(".").await?;
