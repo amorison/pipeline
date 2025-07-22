@@ -55,8 +55,8 @@ impl From<NewFileToProcess> for Received {
 }
 
 impl Received {
-    pub fn path(&self) -> &Path {
-        &self.0.server_path
+    pub fn client_path(&self) -> &Path {
+        &self.0.client_path
     }
 }
 
