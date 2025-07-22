@@ -15,7 +15,9 @@ type Db = Arc<Mutex<HashSet<PathBuf>>>;
 
 async fn listen_to_server(mut from_server: ReadFramedJson<Received>, db: Db) {
     while let Some(msg) = from_server.try_next().await.unwrap() {
-        let in_db = db.try_lock().unwrap().remove(msg.client_path());
+        let path = msg.client_path();
+        fs::remove_file(path).await.unwrap();
+        let in_db = db.try_lock().unwrap().remove(path);
         println!("Client got: {msg:?}, was in db: {in_db}");
     }
 }
@@ -52,6 +54,7 @@ async fn main() -> io::Result<()> {
                 {
                     let mut server_path = PathBuf::from("./dummy-folder/server");
                     server_path.push(client_path.file_name().unwrap());
+                    fs::copy(&client_path, &server_path).await?;
                     let nfp = NewFileToProcess::new(client_path, server_path)?;
                     to_server.send(nfp).await.unwrap();
                 }
