@@ -1,6 +1,7 @@
 use std::{
     collections::HashSet,
     io,
+    path::PathBuf,
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -10,9 +11,20 @@ use futures_util::sink::SinkExt;
 use pipeline::{NewFileToProcess, ReadFramedJson, Received};
 use tokio::{fs, net::TcpStream};
 
+type Db = Arc<Mutex<HashSet<PathBuf>>>;
+
 async fn listen_to_server(mut from_server: ReadFramedJson<Received>) {
     while let Some(msg) = from_server.try_next().await.unwrap() {
         println!("Client got: {msg:?}");
+    }
+}
+
+fn insert_clone(db: &Db, path: &PathBuf) -> bool {
+    let mut db = db.try_lock().unwrap();
+    if db.contains(path) {
+        false
+    } else {
+        db.insert(path.clone())
     }
 }
 
@@ -32,7 +44,7 @@ async fn main() -> io::Result<()> {
         while let Some(entry) = files.next_entry().await? {
             if entry.file_type().await?.is_file() {
                 let path = entry.path();
-                if db.try_lock().unwrap().insert(path.clone()) {
+                if insert_clone(&db, &path) {
                     let nfp = NewFileToProcess::new(path);
                     to_server.send(nfp).await.unwrap();
                 }
