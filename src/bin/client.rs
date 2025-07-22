@@ -45,9 +45,16 @@ async fn main() -> io::Result<()> {
         while let Some(entry) = files.next_entry().await? {
             if entry.file_type().await?.is_file() {
                 let path = entry.path();
-                if insert_clone(&db, &path) {
-                    let nfp = NewFileToProcess::new(path);
-                    to_server.send(nfp).await.unwrap();
+                if !path.extension().is_some_and(|ext| ext == "mrc") {
+                    continue;
+                }
+                if let Ok(last_modif) = path.metadata()?.modified()?.elapsed()
+                    && last_modif > Duration::from_secs(10)
+                {
+                    if insert_clone(&db, &path) {
+                        let nfp = NewFileToProcess::new(path);
+                        to_server.send(nfp).await.unwrap();
+                    }
                 }
             }
         }
