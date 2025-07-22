@@ -19,6 +19,7 @@ use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileSpec {
+    client_path: PathBuf,
     server_path: PathBuf,
     sha256_digest: Vec<u8>,
 }
@@ -28,15 +29,19 @@ pub struct NewFileToProcess(FileSpec);
 
 impl NewFileToProcess {
     pub fn new<P: AsRef<Path>>(path: P) -> io::Result<Self> {
-        let mut hasher = Sha256::new();
+        let path = path.as_ref().canonicalize()?;
 
+        let mut hasher = Sha256::new();
         // FIXME: check whether it is worthwhile to make this non-blocking
         let file = std::fs::File::open(&path)?;
         let mut reader = io::BufReader::new(file);
         io::copy(&mut reader, &mut hasher)?;
 
+        let mut server_path = PathBuf::from("./dummy-folder/server");
+        server_path.push(path.file_name().unwrap());
         let nfp = NewFileToProcess(FileSpec {
-            server_path: PathBuf::from(path.as_ref()),
+            client_path: path,
+            server_path,
             sha256_digest: hasher.finalize().to_vec(),
         });
         Ok(nfp)

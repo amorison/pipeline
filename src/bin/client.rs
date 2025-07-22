@@ -41,7 +41,7 @@ async fn main() -> io::Result<()> {
     tokio::spawn(listen_to_server(from_server, db.clone()));
 
     loop {
-        let mut files = fs::read_dir(".").await?;
+        let mut files = fs::read_dir("./dummy-folder/client").await?;
         while let Some(entry) = files.next_entry().await? {
             if entry.file_type().await?.is_file() {
                 let path = entry.path();
@@ -50,8 +50,8 @@ async fn main() -> io::Result<()> {
                     && last_modif > Duration::from_secs(10)
                 {
                     if insert_clone(&db, &path) {
-                        let nfp = NewFileToProcess::new(path);
-                        to_server.send(nfp?).await.unwrap();
+                        let nfp = NewFileToProcess::new(path)?;
+                        to_server.send(nfp).await.unwrap();
                     }
                 }
             }
