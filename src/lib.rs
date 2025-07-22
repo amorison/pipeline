@@ -19,7 +19,7 @@ use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileSpec {
-    remote_path: PathBuf,
+    server_path: PathBuf,
     sha256_digest: Vec<u8>,
 }
 
@@ -36,7 +36,7 @@ impl NewFileToProcess {
         io::copy(&mut reader, &mut hasher)?;
 
         let nfp = NewFileToProcess(FileSpec {
-            remote_path: PathBuf::from(path.as_ref()),
+            server_path: PathBuf::from(path.as_ref()),
             sha256_digest: hasher.finalize().to_vec(),
         });
         Ok(nfp)
@@ -55,7 +55,7 @@ impl From<NewFileToProcess> for Received {
 
 impl Received {
     pub fn path(&self) -> &Path {
-        &self.0.remote_path
+        &self.0.server_path
     }
 }
 
