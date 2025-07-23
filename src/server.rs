@@ -2,15 +2,23 @@ use std::{io, sync::Arc};
 
 use crate::{NewFileToProcess, Receipt};
 use futures_util::TryStreamExt;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokio::{
     net::{TcpListener, TcpStream},
     sync::Mutex,
 };
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Config {
     addr: String,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            addr: "127.0.0.1:12345".to_owned(),
+        }
+    }
 }
 
 async fn handle_client(stream: TcpStream) -> io::Result<()> {

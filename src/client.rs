@@ -9,14 +9,22 @@ use std::{
 use crate::{NewFileToProcess, ReadFramedJson, Receipt, WriteFramedJson};
 use futures_util::TryStreamExt;
 use futures_util::sink::SinkExt;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokio::{fs, net::TcpStream};
 
 type Db = Arc<Mutex<HashSet<PathBuf>>>;
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Config {
     server: String,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            server: "127.0.0.1:12345".to_owned(),
+        }
+    }
 }
 
 async fn listen_to_server(mut from_server: ReadFramedJson<Receipt>, db: Db) -> io::Result<()> {
