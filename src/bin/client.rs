@@ -74,10 +74,7 @@ async fn main() -> io::Result<()> {
     let db = Arc::new(Mutex::new(HashSet::new()));
 
     tokio::select!(
-        handle = tokio::spawn(listen_to_server(from_server, db.clone())) => {
-            let res = handle.unwrap();
-            res
-        }
-        res = watch_dir(to_server, db) => res
+        handle = tokio::spawn(listen_to_server(from_server, db.clone())) => handle.unwrap(),
+        res = watch_dir(to_server, db) => res,
     )
 }
