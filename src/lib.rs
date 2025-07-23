@@ -1,3 +1,4 @@
+pub mod client;
 pub mod server;
 
 use futures_util::SinkExt;
