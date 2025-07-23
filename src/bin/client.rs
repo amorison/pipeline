@@ -23,6 +23,7 @@ async fn listen_to_server(mut from_server: ReadFramedJson<Receipt>, db: Db) -> i
                 println!("Client got confirmation for {spec:?}, was in db: {in_db}");
             }
             Receipt::DifferentHash { .. } => todo!(),
+            Receipt::Error(_) => todo!(),
         }
     }
     Err(io::Error::new(

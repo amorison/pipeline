@@ -5,7 +5,6 @@ use std::{
     io,
     path::{Path, PathBuf},
     sync::Arc,
-    time::Duration,
 };
 use tokio::{
     net::{
@@ -55,6 +54,7 @@ pub enum Receipt {
         spec: FileSpec,
         received_hash: Vec<u8>,
     },
+    Error(String),
 }
 
 impl FileSpec {
@@ -87,11 +87,18 @@ pub async fn processing_pipeline(
     channel: Arc<Mutex<WriteFramedJson<Receipt>>>,
 ) {
     let NewFileToProcess(spec) = file;
-    tokio::time::sleep(Duration::from_secs(2)).await; // to simulate processing
-    channel
-        .lock()
-        .await
-        .send(Receipt::Received(spec))
-        .await
-        .unwrap();
+    let receipt = match file_hash(&spec.server_path) {
+        Ok(received_hash) => {
+            if spec.sha256_digest == received_hash {
+                Receipt::Received(spec)
+            } else {
+                Receipt::DifferentHash {
+                    spec,
+                    received_hash,
+                }
+            }
+        }
+        Err(err) => Receipt::Error(err.to_string()),
+    };
+    channel.lock().await.send(receipt).await.unwrap();
 }
