@@ -3,7 +3,7 @@ clientdir := "dummy-folder/client"
 
 # start server
 start-server:
-    cargo run -- server
+    cargo run -- server server.toml
 
 # start client
 start-client:

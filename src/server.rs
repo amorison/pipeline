@@ -2,10 +2,16 @@ use std::{io, sync::Arc};
 
 use crate::{NewFileToProcess, Receipt};
 use futures_util::TryStreamExt;
+use serde::Deserialize;
 use tokio::{
     net::{TcpListener, TcpStream},
     sync::Mutex,
 };
+
+#[derive(Deserialize)]
+pub struct Config {
+    addr: String,
+}
 
 async fn handle_client(stream: TcpStream) -> io::Result<()> {
     let (mut from_client, to_client) =
@@ -19,8 +25,8 @@ async fn handle_client(stream: TcpStream) -> io::Result<()> {
     Ok(())
 }
 
-pub async fn main() -> io::Result<()> {
-    let listener = TcpListener::bind("127.0.0.1:12345").await?;
+pub async fn main(config: Config) -> io::Result<()> {
+    let listener = TcpListener::bind(&config.addr).await?;
 
     println!("Server listening on {:?}", listener.local_addr());
 

@@ -20,7 +20,10 @@ enum Commands {
         config: PathBuf,
     },
     /// Start pipeline server
-    Server,
+    Server {
+        /// Configuration file
+        config: PathBuf,
+    },
 }
 
 pub async fn main() -> io::Result<()> {
@@ -31,6 +34,10 @@ pub async fn main() -> io::Result<()> {
             let config = toml::from_str(&toml_content).unwrap();
             client::main(config).await
         }
-        Commands::Server => server::main().await,
+        Commands::Server { config } => {
+            let toml_content = fs::read_to_string(config)?;
+            let config = toml::from_str(&toml_content).unwrap();
+            server::main(config).await
+        }
     }
 }
