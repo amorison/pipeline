@@ -1,7 +1,10 @@
-use std::{fs, io, path::PathBuf};
+use std::{
+    fs, io,
+    path::{Path, PathBuf},
+};
 
 use clap::{Parser, Subcommand};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{client, server};
 
@@ -40,6 +43,11 @@ enum ConfKind {
     Server,
 }
 
+fn conf_from_toml<T: for<'a> Deserialize<'a>>(path: &Path) -> io::Result<T> {
+    let content = fs::read_to_string(path)?;
+    toml::from_str(&content).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))
+}
+
 fn default_conf_as_toml<T>() -> String
 where
     T: Serialize + Default,
@@ -50,16 +58,8 @@ where
 pub async fn main() -> io::Result<()> {
     let cli = Cli::parse();
     match &cli.command {
-        Commands::Client { config } => {
-            let toml_content = fs::read_to_string(config)?;
-            let config = toml::from_str(&toml_content).unwrap();
-            client::main(config).await
-        }
-        Commands::Server { config } => {
-            let toml_content = fs::read_to_string(config)?;
-            let config = toml::from_str(&toml_content).unwrap();
-            server::main(config).await
-        }
+        Commands::Client { config } => client::main(conf_from_toml(config)?).await,
+        Commands::Server { config } => server::main(conf_from_toml(config)?).await,
         Commands::PrintConfig {
             kind: ConfKind::Client,
         } => {
