@@ -8,7 +8,7 @@ use std::{
 
 use futures_util::TryStreamExt;
 use futures_util::sink::SinkExt;
-use pipeline::{NewFileToProcess, ReadFramedJson, Received};
+use pipeline::{NewFileToProcess, ReadFramedJson, Received, WriteFramedJson};
 use tokio::{fs, net::TcpStream};
 
 type Db = Arc<Mutex<HashSet<PathBuf>>>;
@@ -22,26 +22,7 @@ async fn listen_to_server(mut from_server: ReadFramedJson<Received>, db: Db) {
     }
 }
 
-fn insert_clone(db: &Db, path: &PathBuf) -> bool {
-    let mut db = db.try_lock().unwrap();
-    if db.contains(path) {
-        false
-    } else {
-        db.insert(path.clone())
-    }
-}
-
-#[tokio::main]
-async fn main() -> io::Result<()> {
-    let stream = TcpStream::connect("127.0.0.1:12345").await.unwrap();
-
-    let (from_server, mut to_server) =
-        pipeline::framed_json_channel::<Received, NewFileToProcess>(stream);
-
-    let db = Arc::new(Mutex::new(HashSet::new()));
-
-    tokio::spawn(listen_to_server(from_server, db.clone()));
-
+async fn watch_dir(mut to_server: WriteFramedJson<NewFileToProcess>, db: Db) -> io::Result<()> {
     loop {
         let mut files = fs::read_dir("./dummy-folder/client").await?;
         while let Some(entry) = files.next_entry().await? {
@@ -62,4 +43,27 @@ async fn main() -> io::Result<()> {
         }
         tokio::time::sleep(Duration::from_secs(5)).await;
     }
+}
+
+fn insert_clone(db: &Db, path: &PathBuf) -> bool {
+    let mut db = db.try_lock().unwrap();
+    if db.contains(path) {
+        false
+    } else {
+        db.insert(path.clone())
+    }
+}
+
+#[tokio::main]
+async fn main() -> io::Result<()> {
+    let stream = TcpStream::connect("127.0.0.1:12345").await.unwrap();
+
+    let (from_server, to_server) =
+        pipeline::framed_json_channel::<Received, NewFileToProcess>(stream);
+
+    let db = Arc::new(Mutex::new(HashSet::new()));
+
+    tokio::spawn(listen_to_server(from_server, db.clone()));
+
+    watch_dir(to_server, db).await
 }
