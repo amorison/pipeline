@@ -13,13 +13,17 @@ use tokio::{fs, net::TcpStream};
 
 type Db = Arc<Mutex<HashSet<PathBuf>>>;
 
-async fn listen_to_server(mut from_server: ReadFramedJson<Received>, db: Db) {
-    while let Some(msg) = from_server.try_next().await.unwrap() {
+async fn listen_to_server(mut from_server: ReadFramedJson<Received>, db: Db) -> io::Result<()> {
+    while let Some(msg) = from_server.try_next().await? {
         let path = msg.client_path();
-        fs::remove_file(path).await.unwrap();
+        fs::remove_file(path).await?;
         let in_db = db.try_lock().unwrap().remove(path);
         println!("Client got: {msg:?}, was in db: {in_db}");
     }
+    Err(io::Error::new(
+        io::ErrorKind::ConnectionAborted,
+        "Connection closed by server",
+    ))
 }
 
 async fn watch_dir(mut to_server: WriteFramedJson<NewFileToProcess>, db: Db) -> io::Result<()> {
@@ -37,7 +41,7 @@ async fn watch_dir(mut to_server: WriteFramedJson<NewFileToProcess>, db: Db) -> 
                     server_path.push(client_path.file_name().unwrap());
                     fs::copy(&client_path, &server_path).await?;
                     let nfp = NewFileToProcess::new(client_path, server_path)?;
-                    to_server.send(nfp).await.unwrap();
+                    to_server.send(nfp).await?;
                 }
             }
         }
@@ -56,14 +60,18 @@ fn insert_clone(db: &Db, path: &PathBuf) -> bool {
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
-    let stream = TcpStream::connect("127.0.0.1:12345").await.unwrap();
+    let stream = TcpStream::connect("127.0.0.1:12345").await?;
 
     let (from_server, to_server) =
         pipeline::framed_json_channel::<Received, NewFileToProcess>(stream);
 
     let db = Arc::new(Mutex::new(HashSet::new()));
 
-    tokio::spawn(listen_to_server(from_server, db.clone()));
-
-    watch_dir(to_server, db).await
+    tokio::select!(
+        handle = tokio::spawn(listen_to_server(from_server, db.clone())) => {
+            let res = handle.unwrap();
+            res
+        }
+        res = watch_dir(to_server, db) => res
+    )
 }
