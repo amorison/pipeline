@@ -26,6 +26,7 @@ impl Default for Config {
             server: "127.0.0.1:12345".to_owned(),
             watching: Watching {
                 extension: "mrc".to_owned(),
+                last_modif_secs: 10,
             },
         }
     }
@@ -34,6 +35,7 @@ impl Default for Config {
 #[derive(Serialize, Deserialize)]
 struct Watching {
     extension: String,
+    last_modif_secs: u64,
 }
 
 async fn listen_to_server(mut from_server: ReadFramedJson<Receipt>, db: Db) -> io::Result<()> {
@@ -69,7 +71,7 @@ async fn watch_dir(
                     .extension()
                     .is_some_and(|ext| *ext == *conf.extension)
                     && let Ok(last_modif) = client_path.metadata()?.modified()?.elapsed()
-                    && last_modif > Duration::from_secs(10)
+                    && last_modif > Duration::from_secs(conf.last_modif_secs)
                     && insert_clone(&db, &client_path)
                 {
                     let mut server_path = PathBuf::from("./dummy-folder/server");
