@@ -1,4 +1,4 @@
-use std::io;
+use std::{fs, io, path::PathBuf};
 
 use clap::{Parser, Subcommand};
 
@@ -15,7 +15,10 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Start pipeline client
-    Client,
+    Client {
+        /// Configuration file
+        config: PathBuf,
+    },
     /// Start pipeline server
     Server,
 }
@@ -23,7 +26,11 @@ enum Commands {
 pub async fn main() -> io::Result<()> {
     let cli = Cli::parse();
     match &cli.command {
-        Commands::Client => client::main().await,
+        Commands::Client { config } => {
+            let toml_content = fs::read_to_string(config)?;
+            let config = toml::from_str(&toml_content).unwrap();
+            client::main(config).await
+        }
         Commands::Server => server::main().await,
     }
 }

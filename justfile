@@ -7,7 +7,7 @@ start-server:
 
 # start client
 start-client:
-    cargo run -- client
+    cargo run -- client client.toml
 
 # setup tests
 setup: setup-dirs create-rand-file

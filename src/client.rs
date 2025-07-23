@@ -9,9 +9,15 @@ use std::{
 use crate::{NewFileToProcess, ReadFramedJson, Receipt, WriteFramedJson};
 use futures_util::TryStreamExt;
 use futures_util::sink::SinkExt;
+use serde::Deserialize;
 use tokio::{fs, net::TcpStream};
 
 type Db = Arc<Mutex<HashSet<PathBuf>>>;
+
+#[derive(Deserialize)]
+pub struct Config {
+    server: String,
+}
 
 async fn listen_to_server(mut from_server: ReadFramedJson<Receipt>, db: Db) -> io::Result<()> {
     while let Some(msg) = from_server.try_next().await? {
@@ -64,8 +70,8 @@ fn insert_clone(db: &Db, path: &PathBuf) -> bool {
     }
 }
 
-pub async fn main() -> io::Result<()> {
-    let stream = TcpStream::connect("127.0.0.1:12345").await?;
+pub async fn main(config: Config) -> io::Result<()> {
+    let stream = TcpStream::connect(&config.server).await?;
 
     let (from_server, to_server) = crate::framed_json_channel::<Receipt, NewFileToProcess>(stream);
 
