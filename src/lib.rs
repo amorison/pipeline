@@ -49,11 +49,17 @@ impl NewFileToProcess {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Received(FileSpec);
+pub enum Receipt {
+    Received(FileSpec),
+    DifferentHash {
+        spec: FileSpec,
+        received_hash: Vec<u8>,
+    },
+}
 
-impl Received {
+impl FileSpec {
     pub fn client_path(&self) -> &Path {
-        &self.0.client_path
+        &self.client_path
     }
 }
 
@@ -78,9 +84,14 @@ pub fn framed_json_channel<R, W>(stream: TcpStream) -> (ReadFramedJson<R>, Write
 
 pub async fn processing_pipeline(
     file: NewFileToProcess,
-    channel: Arc<Mutex<WriteFramedJson<Received>>>,
+    channel: Arc<Mutex<WriteFramedJson<Receipt>>>,
 ) {
     let NewFileToProcess(spec) = file;
     tokio::time::sleep(Duration::from_secs(2)).await; // to simulate processing
-    channel.lock().await.send(Received(spec)).await.unwrap();
+    channel
+        .lock()
+        .await
+        .send(Receipt::Received(spec))
+        .await
+        .unwrap();
 }

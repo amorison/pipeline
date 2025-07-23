@@ -8,17 +8,22 @@ use std::{
 
 use futures_util::TryStreamExt;
 use futures_util::sink::SinkExt;
-use pipeline::{NewFileToProcess, ReadFramedJson, Received, WriteFramedJson};
+use pipeline::{NewFileToProcess, ReadFramedJson, Receipt, WriteFramedJson};
 use tokio::{fs, net::TcpStream};
 
 type Db = Arc<Mutex<HashSet<PathBuf>>>;
 
-async fn listen_to_server(mut from_server: ReadFramedJson<Received>, db: Db) -> io::Result<()> {
+async fn listen_to_server(mut from_server: ReadFramedJson<Receipt>, db: Db) -> io::Result<()> {
     while let Some(msg) = from_server.try_next().await? {
-        let path = msg.client_path();
-        fs::remove_file(path).await?;
-        let in_db = db.try_lock().unwrap().remove(path);
-        println!("Client got: {msg:?}, was in db: {in_db}");
+        match msg {
+            Receipt::Received(spec) => {
+                let path = spec.client_path();
+                fs::remove_file(path).await?;
+                let in_db = db.try_lock().unwrap().remove(path);
+                println!("Client got confirmation for {spec:?}, was in db: {in_db}");
+            }
+            Receipt::DifferentHash { .. } => todo!(),
+        }
     }
     Err(io::Error::new(
         io::ErrorKind::ConnectionAborted,
@@ -63,7 +68,7 @@ async fn main() -> io::Result<()> {
     let stream = TcpStream::connect("127.0.0.1:12345").await?;
 
     let (from_server, to_server) =
-        pipeline::framed_json_channel::<Received, NewFileToProcess>(stream);
+        pipeline::framed_json_channel::<Receipt, NewFileToProcess>(stream);
 
     let db = Arc::new(Mutex::new(HashSet::new()));
 

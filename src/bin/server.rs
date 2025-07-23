@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use futures_util::TryStreamExt;
-use pipeline::{NewFileToProcess, Received};
+use pipeline::{NewFileToProcess, Receipt};
 use tokio::{
     net::{TcpListener, TcpStream},
     sync::Mutex,
@@ -9,7 +9,7 @@ use tokio::{
 
 async fn handle_client(stream: TcpStream) {
     let (mut from_client, to_client) =
-        pipeline::framed_json_channel::<NewFileToProcess, Received>(stream);
+        pipeline::framed_json_channel::<NewFileToProcess, Receipt>(stream);
     let to_client = Arc::new(Mutex::new(to_client));
 
     while let Some(msg) = from_client.try_next().await.unwrap() {
