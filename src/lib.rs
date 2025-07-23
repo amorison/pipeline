@@ -47,13 +47,6 @@ impl NewFileToProcess {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Received(FileSpec);
 
-impl From<NewFileToProcess> for Received {
-    fn from(value: NewFileToProcess) -> Self {
-        let NewFileToProcess(spec) = value;
-        Received(spec)
-    }
-}
-
 impl Received {
     pub fn client_path(&self) -> &Path {
         &self.0.client_path
@@ -83,7 +76,7 @@ pub async fn processing_pipeline(
     file: NewFileToProcess,
     channel: Arc<Mutex<WriteFramedJson<Received>>>,
 ) {
-    let received: Received = file.into();
+    let NewFileToProcess(spec) = file;
     tokio::time::sleep(Duration::from_secs(2)).await; // to simulate processing
-    channel.lock().await.send(received).await.unwrap();
+    channel.lock().await.send(Received(spec)).await.unwrap();
 }
