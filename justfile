@@ -10,13 +10,12 @@ start-client:
     cargo run -- client client.toml
 
 # setup tests
-setup: setup-dirs create-rand-file
-
-# setup dummy folders for testing
-setup-dirs:
+setup:
     rm -rf dummy-folder/
     mkdir -p {{serverdir}} {{clientdir}}
     echo '*' > dummy-folder/.gitignore
+    just create-rand-file
+    just create-rand-file
 
 # create random file on client
 create-rand-file:
