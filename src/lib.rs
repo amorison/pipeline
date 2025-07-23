@@ -17,19 +17,19 @@ use tokio_serde::{SymmetricallyFramed, formats::SymmetricalJson};
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 
 // FIXME: check whether it is worthwhile to make this non-blocking
-fn file_hash(path: &Path) -> io::Result<Vec<u8>> {
+fn file_hash(path: &Path) -> io::Result<String> {
     let mut hasher = Sha256::new();
     let file = std::fs::File::open(path)?;
     let mut reader = io::BufReader::new(file);
     io::copy(&mut reader, &mut hasher)?;
-    Ok(hasher.finalize().to_vec())
+    Ok(hex::encode(hasher.finalize()))
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileSpec {
     client_path: PathBuf,
     server_path: PathBuf,
-    sha256_digest: Vec<u8>,
+    sha256_digest: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -52,7 +52,7 @@ pub enum Receipt {
     Received(FileSpec),
     DifferentHash {
         spec: FileSpec,
-        received_hash: Vec<u8>,
+        received_hash: String,
     },
     Error(String),
 }
