@@ -1,3 +1,5 @@
+pub mod server;
+
 use futures_util::SinkExt;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
