@@ -3,11 +3,11 @@ clientdir := "dummy-folder/client"
 
 # start server
 start-server:
-    cargo run --bin=server
+    cargo run -- server
 
 # start client
 start-client:
-    cargo run --bin=client
+    cargo run -- client
 
 # setup tests
 setup: setup-dirs create-rand-file
