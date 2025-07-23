@@ -17,6 +17,15 @@ use tokio::{
 use tokio_serde::{SymmetricallyFramed, formats::SymmetricalJson};
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 
+// FIXME: check whether it is worthwhile to make this non-blocking
+fn file_hash(path: &Path) -> io::Result<Vec<u8>> {
+    let mut hasher = Sha256::new();
+    let file = std::fs::File::open(path)?;
+    let mut reader = io::BufReader::new(file);
+    io::copy(&mut reader, &mut hasher)?;
+    Ok(hasher.finalize().to_vec())
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FileSpec {
     client_path: PathBuf,
@@ -29,16 +38,11 @@ pub struct NewFileToProcess(FileSpec);
 
 impl NewFileToProcess {
     pub fn new(client_path: PathBuf, server_path: PathBuf) -> io::Result<Self> {
-        let mut hasher = Sha256::new();
-        // FIXME: check whether it is worthwhile to make this non-blocking
-        let file = std::fs::File::open(&client_path)?;
-        let mut reader = io::BufReader::new(file);
-        io::copy(&mut reader, &mut hasher)?;
-
+        let sha256_digest = file_hash(&client_path)?;
         let nfp = NewFileToProcess(FileSpec {
             client_path,
             server_path,
-            sha256_digest: hasher.finalize().to_vec(),
+            sha256_digest,
         });
         Ok(nfp)
     }
