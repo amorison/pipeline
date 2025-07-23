@@ -27,6 +27,7 @@ impl Default for Config {
             watching: Watching {
                 extension: "mrc".to_owned(),
                 last_modif_secs: 10,
+                refresh_every_secs: 5,
             },
         }
     }
@@ -36,6 +37,7 @@ impl Default for Config {
 struct Watching {
     extension: String,
     last_modif_secs: u64,
+    refresh_every_secs: u64,
 }
 
 async fn listen_to_server(mut from_server: ReadFramedJson<Receipt>, db: Db) -> io::Result<()> {
@@ -82,7 +84,7 @@ async fn watch_dir(
                 }
             }
         }
-        tokio::time::sleep(Duration::from_secs(5)).await;
+        tokio::time::sleep(Duration::from_secs(conf.refresh_every_secs)).await;
     }
 }
 
