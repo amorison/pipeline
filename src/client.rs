@@ -17,14 +17,23 @@ type Db = Arc<Mutex<HashSet<PathBuf>>>;
 #[derive(Serialize, Deserialize)]
 pub struct Config {
     server: String,
+    watching: Watching,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Config {
             server: "127.0.0.1:12345".to_owned(),
+            watching: Watching {
+                extension: "mrc".to_owned(),
+            },
         }
     }
+}
+
+#[derive(Serialize, Deserialize)]
+struct Watching {
+    extension: String,
 }
 
 async fn listen_to_server(mut from_server: ReadFramedJson<Receipt>, db: Db) -> io::Result<()> {
@@ -46,13 +55,19 @@ async fn listen_to_server(mut from_server: ReadFramedJson<Receipt>, db: Db) -> i
     ))
 }
 
-async fn watch_dir(mut to_server: WriteFramedJson<NewFileToProcess>, db: Db) -> io::Result<()> {
+async fn watch_dir(
+    mut to_server: WriteFramedJson<NewFileToProcess>,
+    db: Db,
+    conf: Watching,
+) -> io::Result<()> {
     loop {
         let mut files = fs::read_dir("./dummy-folder/client").await?;
         while let Some(entry) = files.next_entry().await? {
             if entry.file_type().await?.is_file() {
                 let client_path = entry.path().canonicalize()?;
-                if client_path.extension().is_some_and(|ext| ext == "mrc")
+                if client_path
+                    .extension()
+                    .is_some_and(|ext| *ext == *conf.extension)
                     && let Ok(last_modif) = client_path.metadata()?.modified()?.elapsed()
                     && last_modif > Duration::from_secs(10)
                     && insert_clone(&db, &client_path)
@@ -87,6 +102,6 @@ pub async fn main(config: Config) -> io::Result<()> {
 
     tokio::select!(
         handle = tokio::spawn(listen_to_server(from_server, db.clone())) => handle.unwrap(),
-        res = watch_dir(to_server, db) => res,
+        res = watch_dir(to_server, db, config.watching) => res,
     )
 }
