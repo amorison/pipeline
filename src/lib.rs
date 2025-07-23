@@ -7,6 +7,7 @@ use std::{
     sync::Arc,
 };
 use tokio::{
+    fs,
     net::{
         TcpStream,
         tcp::{OwnedReadHalf, OwnedWriteHalf},
@@ -25,7 +26,7 @@ fn file_hash(path: &Path) -> io::Result<String> {
     Ok(hex::encode(hasher.finalize()))
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct FileSpec {
     client_path: PathBuf,
     server_path: PathBuf,
@@ -82,6 +83,11 @@ pub fn framed_json_channel<R, W>(stream: TcpStream) -> (ReadFramedJson<R>, Write
     (read_half, write_half)
 }
 
+async fn process_file(source: &Path, dest: &Path) -> io::Result<()> {
+    fs::rename(source, dest).await?;
+    Ok(())
+}
+
 pub async fn processing_pipeline(
     file: NewFileToProcess,
     channel: Arc<Mutex<WriteFramedJson<Receipt>>>,
@@ -90,10 +96,10 @@ pub async fn processing_pipeline(
     let receipt = match file_hash(&spec.server_path) {
         Ok(received_hash) => {
             if spec.sha256_digest == received_hash {
-                Receipt::Received(spec)
+                Receipt::Received(spec.clone())
             } else {
                 Receipt::DifferentHash {
-                    spec,
+                    spec: spec.clone(),
                     received_hash,
                 }
             }
@@ -101,4 +107,8 @@ pub async fn processing_pipeline(
         Err(err) => Receipt::Error(err.to_string()),
     };
     channel.lock().await.send(receipt).await.unwrap();
+
+    process_file(&spec.server_path, &spec.server_path.with_extension("tiff"))
+        .await
+        .unwrap();
 }
