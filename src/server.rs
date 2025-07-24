@@ -16,12 +16,14 @@ use tokio::{
 #[derive(Serialize, Deserialize)]
 pub(crate) struct Config {
     addr: String,
+    incoming_directory: PathBuf,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Config {
             addr: "127.0.0.1:12345".to_owned(),
+            incoming_directory: "./server".into(),
         }
     }
 }
@@ -34,10 +36,10 @@ async fn process_file(source: &Path, dest: &Path) -> io::Result<()> {
 async fn processing_pipeline(
     file: NewFileToProcess,
     channel: Arc<Mutex<WriteFramedJson<Receipt>>>,
+    config: Arc<Config>,
 ) {
     let NewFileToProcess(spec) = file;
-    // FIXME: move to config
-    let mut server_path = PathBuf::from("./server");
+    let mut server_path = config.incoming_directory.clone();
     server_path.push(&spec.server_filename);
 
     let receipt = match file_hash(&server_path) {
@@ -60,19 +62,21 @@ async fn processing_pipeline(
         .unwrap();
 }
 
-async fn handle_client(stream: TcpStream) -> io::Result<()> {
+async fn handle_client(stream: TcpStream, config: Arc<Config>) -> io::Result<()> {
     let (mut from_client, to_client) =
         crate::framed_json_channel::<NewFileToProcess, Receipt>(stream);
     let to_client = Arc::new(Mutex::new(to_client));
 
     while let Some(msg) = from_client.try_next().await? {
         println!("Server got: {msg:?}");
-        tokio::spawn(processing_pipeline(msg, to_client.clone()));
+        tokio::spawn(processing_pipeline(msg, to_client.clone(), config.clone()));
     }
     Ok(())
 }
 
 pub(crate) async fn main(config: Config) -> io::Result<()> {
+    let config = Arc::new(config);
+
     let listener = TcpListener::bind(&config.addr).await?;
 
     println!("Server listening on {:?}", listener.local_addr());
@@ -80,6 +84,6 @@ pub(crate) async fn main(config: Config) -> io::Result<()> {
     loop {
         let (socket, addr) = listener.accept().await?;
         println!("Server got connection request from {addr:?}");
-        tokio::spawn(handle_client(socket));
+        tokio::spawn(handle_client(socket, config.clone()));
     }
 }
