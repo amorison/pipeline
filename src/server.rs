@@ -1,4 +1,8 @@
-use std::{io, path::Path, sync::Arc};
+use std::{
+    io,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use crate::{NewFileToProcess, Receipt, WriteFramedJson, file_hash};
 use futures_util::{SinkExt, TryStreamExt};
@@ -32,7 +36,11 @@ async fn processing_pipeline(
     channel: Arc<Mutex<WriteFramedJson<Receipt>>>,
 ) {
     let NewFileToProcess(spec) = file;
-    let receipt = match file_hash(&spec.server_path) {
+    // FIXME: move to config
+    let mut server_path = PathBuf::from("./server");
+    server_path.push(&spec.server_filename);
+
+    let receipt = match file_hash(&server_path) {
         Ok(received_hash) => {
             if spec.sha256_digest == received_hash {
                 Receipt::Received(spec.clone())
@@ -47,7 +55,7 @@ async fn processing_pipeline(
     };
     channel.lock().await.send(receipt).await.unwrap();
 
-    process_file(&spec.server_path, &spec.server_path.with_extension("tiff"))
+    process_file(&server_path, &server_path.with_extension("tiff"))
         .await
         .unwrap();
 }

@@ -5,6 +5,7 @@ mod server;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
+    ffi::OsString,
     io,
     path::{Path, PathBuf},
 };
@@ -27,7 +28,7 @@ fn file_hash(path: &Path) -> io::Result<String> {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct FileSpec {
     client_path: PathBuf,
-    server_path: PathBuf,
+    server_filename: OsString,
     sha256_digest: String,
 }
 
@@ -35,11 +36,11 @@ struct FileSpec {
 struct NewFileToProcess(FileSpec);
 
 impl NewFileToProcess {
-    fn new(client_path: PathBuf, server_path: PathBuf) -> io::Result<Self> {
+    fn new(client_path: PathBuf, server_filename: OsString) -> io::Result<Self> {
         let sha256_digest = file_hash(&client_path)?;
         let nfp = NewFileToProcess(FileSpec {
             client_path,
-            server_path,
+            server_filename,
             sha256_digest,
         });
         Ok(nfp)
