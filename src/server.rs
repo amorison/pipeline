@@ -1,15 +1,17 @@
 use std::{
+    ffi::OsString,
     io,
     path::{Path, PathBuf},
     sync::Arc,
 };
 
 use crate::{NewFileToProcess, Receipt, WriteFramedJson, file_hash};
+use bstr::{ByteSlice, ByteVec};
 use futures_util::{SinkExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::{
-    fs,
     net::{TcpListener, TcpStream},
+    process::Command,
     sync::Mutex,
 };
 
@@ -17,6 +19,7 @@ use tokio::{
 pub(crate) struct Config {
     addr: String,
     incoming_directory: PathBuf,
+    processing: Vec<String>,
 }
 
 impl Default for Config {
@@ -24,13 +27,19 @@ impl Default for Config {
         Config {
             addr: "127.0.0.1:12345".to_owned(),
             incoming_directory: "./server".into(),
+            processing: ["cp", "{file_path}", "{file_path}.tiff"]
+                .into_iter()
+                .map(ToOwned::to_owned)
+                .collect(),
         }
     }
 }
 
-async fn process_file(source: &Path, dest: &Path) -> io::Result<()> {
-    fs::rename(source, dest).await?;
-    Ok(())
+fn replace_filepaths(arg: &str, file_path: &Path) -> OsString {
+    arg.as_bytes()
+        .replace("{file_path}", file_path.as_os_str().as_encoded_bytes())
+        .into_os_string()
+        .expect("failed to encode paths")
 }
 
 async fn processing_pipeline(
@@ -57,9 +66,15 @@ async fn processing_pipeline(
     };
     channel.lock().await.send(receipt).await.unwrap();
 
-    process_file(&server_path, &server_path.with_extension("tiff"))
-        .await
-        .unwrap();
+    let mut processing = Command::new(&config.processing[0])
+        .args(
+            config.processing[1..]
+                .iter()
+                .map(|a| replace_filepaths(a, &server_path)),
+        )
+        .spawn()
+        .expect("could not spawn `copy_to_server` command");
+    processing.wait().await.unwrap();
 }
 
 async fn handle_client(stream: TcpStream, config: Arc<Config>) -> io::Result<()> {
