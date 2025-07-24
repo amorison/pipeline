@@ -44,8 +44,9 @@ enum ConfKind {
 }
 
 fn conf_from_toml<T: for<'a> Deserialize<'a>>(path: &Path) -> io::Result<T> {
-    let content = fs::read_to_string(path)?;
-    toml::from_str(&content).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))
+    let content = fs::read(path)?;
+    toml::from_slice(&content)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))
 }
 
 fn default_conf_as_toml<T>() -> String
