@@ -2,21 +2,15 @@ pub mod cli;
 pub mod client;
 pub mod server;
 
-use futures_util::SinkExt;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     io,
     path::{Path, PathBuf},
-    sync::Arc,
 };
-use tokio::{
-    fs,
-    net::{
-        TcpStream,
-        tcp::{OwnedReadHalf, OwnedWriteHalf},
-    },
-    sync::Mutex,
+use tokio::net::{
+    TcpStream,
+    tcp::{OwnedReadHalf, OwnedWriteHalf},
 };
 use tokio_serde::{SymmetricallyFramed, formats::SymmetricalJson};
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
@@ -85,34 +79,4 @@ pub fn framed_json_channel<R, W>(stream: TcpStream) -> (ReadFramedJson<R>, Write
         SymmetricalJson::<W>::default(),
     );
     (read_half, write_half)
-}
-
-async fn process_file(source: &Path, dest: &Path) -> io::Result<()> {
-    fs::rename(source, dest).await?;
-    Ok(())
-}
-
-pub async fn processing_pipeline(
-    file: NewFileToProcess,
-    channel: Arc<Mutex<WriteFramedJson<Receipt>>>,
-) {
-    let NewFileToProcess(spec) = file;
-    let receipt = match file_hash(&spec.server_path) {
-        Ok(received_hash) => {
-            if spec.sha256_digest == received_hash {
-                Receipt::Received(spec.clone())
-            } else {
-                Receipt::DifferentHash {
-                    spec: spec.clone(),
-                    received_hash,
-                }
-            }
-        }
-        Err(err) => Receipt::Error(err.to_string()),
-    };
-    channel.lock().await.send(receipt).await.unwrap();
-
-    process_file(&spec.server_path, &spec.server_path.with_extension("tiff"))
-        .await
-        .unwrap();
 }

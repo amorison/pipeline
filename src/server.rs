@@ -1,9 +1,10 @@
-use std::{io, sync::Arc};
+use std::{io, path::Path, sync::Arc};
 
-use crate::{NewFileToProcess, Receipt};
-use futures_util::TryStreamExt;
+use crate::{NewFileToProcess, Receipt, WriteFramedJson, file_hash};
+use futures_util::{SinkExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::{
+    fs,
     net::{TcpListener, TcpStream},
     sync::Mutex,
 };
@@ -21,6 +22,36 @@ impl Default for Config {
     }
 }
 
+async fn process_file(source: &Path, dest: &Path) -> io::Result<()> {
+    fs::rename(source, dest).await?;
+    Ok(())
+}
+
+async fn processing_pipeline(
+    file: NewFileToProcess,
+    channel: Arc<Mutex<WriteFramedJson<Receipt>>>,
+) {
+    let NewFileToProcess(spec) = file;
+    let receipt = match file_hash(&spec.server_path) {
+        Ok(received_hash) => {
+            if spec.sha256_digest == received_hash {
+                Receipt::Received(spec.clone())
+            } else {
+                Receipt::DifferentHash {
+                    spec: spec.clone(),
+                    received_hash,
+                }
+            }
+        }
+        Err(err) => Receipt::Error(err.to_string()),
+    };
+    channel.lock().await.send(receipt).await.unwrap();
+
+    process_file(&spec.server_path, &spec.server_path.with_extension("tiff"))
+        .await
+        .unwrap();
+}
+
 async fn handle_client(stream: TcpStream) -> io::Result<()> {
     let (mut from_client, to_client) =
         crate::framed_json_channel::<NewFileToProcess, Receipt>(stream);
@@ -28,7 +59,7 @@ async fn handle_client(stream: TcpStream) -> io::Result<()> {
 
     while let Some(msg) = from_client.try_next().await? {
         println!("Server got: {msg:?}");
-        tokio::spawn(crate::processing_pipeline(msg, to_client.clone()));
+        tokio::spawn(processing_pipeline(msg, to_client.clone()));
     }
     Ok(())
 }
