@@ -17,7 +17,7 @@ use tokio::{
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct Config {
-    addr: String,
+    address: String,
     incoming_directory: PathBuf,
     processing: Vec<String>,
 }
@@ -25,7 +25,7 @@ pub(crate) struct Config {
 impl Default for Config {
     fn default() -> Self {
         Config {
-            addr: "127.0.0.1:12345".to_owned(),
+            address: "127.0.0.1:12345".to_owned(),
             incoming_directory: "./server".into(),
             processing: ["cp", "{file_path}", "{file_path}.tiff"]
                 .into_iter()
@@ -92,7 +92,7 @@ async fn handle_client(stream: TcpStream, config: Arc<Config>) -> io::Result<()>
 pub(crate) async fn main(config: Config) -> io::Result<()> {
     let config = Arc::new(config);
 
-    let listener = TcpListener::bind(&config.addr).await?;
+    let listener = TcpListener::bind(&config.address).await?;
 
     println!("Server listening on {:?}", listener.local_addr());
 
