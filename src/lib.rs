@@ -1,6 +1,6 @@
 pub mod cli;
-pub mod client;
-pub mod server;
+mod client;
+mod server;
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -25,17 +25,17 @@ fn file_hash(path: &Path) -> io::Result<String> {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct FileSpec {
+struct FileSpec {
     client_path: PathBuf,
     server_path: PathBuf,
     sha256_digest: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct NewFileToProcess(FileSpec);
+struct NewFileToProcess(FileSpec);
 
 impl NewFileToProcess {
-    pub fn new(client_path: PathBuf, server_path: PathBuf) -> io::Result<Self> {
+    fn new(client_path: PathBuf, server_path: PathBuf) -> io::Result<Self> {
         let sha256_digest = file_hash(&client_path)?;
         let nfp = NewFileToProcess(FileSpec {
             client_path,
@@ -47,7 +47,7 @@ impl NewFileToProcess {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub enum Receipt {
+enum Receipt {
     Received(FileSpec),
     DifferentHash {
         spec: FileSpec,
@@ -62,13 +62,13 @@ impl FileSpec {
     }
 }
 
-pub type ReadFramedJson<T> =
+type ReadFramedJson<T> =
     SymmetricallyFramed<FramedRead<OwnedReadHalf, LengthDelimitedCodec>, T, SymmetricalJson<T>>;
 
-pub type WriteFramedJson<T> =
+type WriteFramedJson<T> =
     SymmetricallyFramed<FramedWrite<OwnedWriteHalf, LengthDelimitedCodec>, T, SymmetricalJson<T>>;
 
-pub fn framed_json_channel<R, W>(stream: TcpStream) -> (ReadFramedJson<R>, WriteFramedJson<W>) {
+fn framed_json_channel<R, W>(stream: TcpStream) -> (ReadFramedJson<R>, WriteFramedJson<W>) {
     let (socket_r, socket_w) = stream.into_split();
     let read_half = tokio_serde::SymmetricallyFramed::new(
         FramedRead::new(socket_r, LengthDelimitedCodec::new()),

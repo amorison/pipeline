@@ -15,7 +15,7 @@ use tokio::{fs, net::TcpStream};
 type Db = Arc<Mutex<HashSet<PathBuf>>>;
 
 #[derive(Serialize, Deserialize)]
-pub struct Config {
+pub(crate) struct Config {
     server: String,
     watching: Watching,
 }
@@ -97,7 +97,7 @@ fn insert_clone(db: &Db, path: &PathBuf) -> bool {
     }
 }
 
-pub async fn main(config: Config) -> io::Result<()> {
+pub(crate) async fn main(config: Config) -> io::Result<()> {
     let stream = TcpStream::connect(&config.server).await?;
 
     let (from_server, to_server) = crate::framed_json_channel::<Receipt, NewFileToProcess>(stream);

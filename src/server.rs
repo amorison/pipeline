@@ -10,7 +10,7 @@ use tokio::{
 };
 
 #[derive(Serialize, Deserialize)]
-pub struct Config {
+pub(crate) struct Config {
     addr: String,
 }
 
@@ -64,7 +64,7 @@ async fn handle_client(stream: TcpStream) -> io::Result<()> {
     Ok(())
 }
 
-pub async fn main(config: Config) -> io::Result<()> {
+pub(crate) async fn main(config: Config) -> io::Result<()> {
     let listener = TcpListener::bind(&config.addr).await?;
 
     println!("Server listening on {:?}", listener.local_addr());
