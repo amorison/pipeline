@@ -25,6 +25,7 @@ impl Default for Config {
         Config {
             server: "127.0.0.1:12345".to_owned(),
             watching: Watching {
+                directory: "./client".into(),
                 extension: "mrc".to_owned(),
                 last_modif_secs: 10,
                 refresh_every_secs: 5,
@@ -35,6 +36,7 @@ impl Default for Config {
 
 #[derive(Serialize, Deserialize)]
 struct Watching {
+    directory: PathBuf,
     extension: String,
     last_modif_secs: u64,
     refresh_every_secs: u64,
@@ -65,7 +67,7 @@ async fn watch_dir(
     conf: Watching,
 ) -> io::Result<()> {
     loop {
-        let mut files = fs::read_dir("./dummy-folder/client").await?;
+        let mut files = fs::read_dir(&conf.directory).await?;
         while let Some(entry) = files.next_entry().await? {
             if entry.file_type().await?.is_file() {
                 let client_path = entry.path().canonicalize()?;
@@ -76,7 +78,7 @@ async fn watch_dir(
                     && last_modif > Duration::from_secs(conf.last_modif_secs)
                     && insert_clone(&db, &client_path)
                 {
-                    let mut server_path = PathBuf::from("./dummy-folder/server");
+                    let mut server_path = PathBuf::from("./server");
                     server_path.push(client_path.file_name().unwrap());
                     fs::copy(&client_path, &server_path).await?;
                     let nfp = NewFileToProcess::new(client_path, server_path)?;
