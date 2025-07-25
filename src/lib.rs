@@ -2,10 +2,11 @@ pub mod cli;
 mod client;
 mod server;
 
+use bstr::{ByteSlice, ByteVec};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
-    ffi::OsString,
+    ffi::{OsStr, OsString},
     io,
     path::{Path, PathBuf},
 };
@@ -23,6 +24,18 @@ fn file_hash(path: &Path) -> io::Result<String> {
     let mut reader = io::BufReader::new(file);
     io::copy(&mut reader, &mut hasher)?;
     Ok(hex::encode(hasher.finalize()))
+}
+
+fn replace_os_strings<'a, I>(arg: &str, replacements: I) -> OsString
+where
+    I: Iterator<Item = (&'a str, &'a OsStr)>,
+{
+    replacements
+        .fold(arg.into(), |b: Vec<u8>, (needle, replacement)| {
+            b.replace(needle, replacement.as_encoded_bytes())
+        })
+        .into_os_string()
+        .expect("failed to encode OS string")
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

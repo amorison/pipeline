@@ -5,8 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::{NewFileToProcess, Receipt, WriteFramedJson, file_hash};
-use bstr::{ByteSlice, ByteVec};
+use crate::{NewFileToProcess, Receipt, WriteFramedJson, file_hash, replace_os_strings};
 use futures_util::{SinkExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::{
@@ -36,10 +35,7 @@ impl Default for Config {
 }
 
 fn replace_filepaths(arg: &str, file_path: &Path) -> OsString {
-    arg.as_bytes()
-        .replace("{file_path}", file_path.as_os_str().as_encoded_bytes())
-        .into_os_string()
-        .expect("failed to encode paths")
+    replace_os_strings(arg, [("{file_path}", file_path.as_os_str())].into_iter())
 }
 
 async fn processing_pipeline(

@@ -7,8 +7,7 @@ use std::{
     time::Duration,
 };
 
-use crate::{NewFileToProcess, ReadFramedJson, Receipt, WriteFramedJson};
-use bstr::{ByteSlice, ByteVec};
+use crate::{NewFileToProcess, ReadFramedJson, Receipt, WriteFramedJson, replace_os_strings};
 use futures_util::TryStreamExt;
 use futures_util::sink::SinkExt;
 use serde::{Deserialize, Serialize};
@@ -69,11 +68,14 @@ async fn listen_to_server(mut from_server: ReadFramedJson<Receipt>, db: Db) -> i
 }
 
 fn replace_filepaths(arg: &str, client_path: &Path, server_filename: &OsStr) -> OsString {
-    arg.as_bytes()
-        .replace("{client_path}", client_path.as_os_str().as_encoded_bytes())
-        .replace("{server_filename}", server_filename.as_encoded_bytes())
-        .into_os_string()
-        .expect("failed to encode paths")
+    replace_os_strings(
+        arg,
+        [
+            ("{client_path}", client_path.as_os_str()),
+            ("{server_filename}", server_filename),
+        ]
+        .into_iter(),
+    )
 }
 
 async fn watch_dir(
