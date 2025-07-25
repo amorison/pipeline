@@ -1,8 +1,7 @@
 use std::{
     collections::HashSet,
-    ffi::{OsStr, OsString},
     io,
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -67,17 +66,6 @@ async fn listen_to_server(mut from_server: ReadFramedJson<Receipt>, db: Db) -> i
     ))
 }
 
-fn replace_filepaths(arg: &str, client_path: &Path, server_filename: &OsStr) -> OsString {
-    replace_os_strings(
-        arg,
-        [
-            ("{client_path}", client_path.as_os_str()),
-            ("{server_filename}", server_filename),
-        ]
-        .into_iter(),
-    )
-}
-
 async fn watch_dir(
     mut to_server: WriteFramedJson<NewFileToProcess>,
     db: Db,
@@ -97,11 +85,16 @@ async fn watch_dir(
                 {
                     let server_filename = client_path.file_name().unwrap().to_owned();
                     let mut copy = Command::new(&conf.copy_to_server[0])
-                        .args(
-                            conf.copy_to_server[1..]
-                                .iter()
-                                .map(|a| replace_filepaths(a, &client_path, &server_filename)),
-                        )
+                        .args(conf.copy_to_server[1..].iter().map(|a| {
+                            replace_os_strings(
+                                a,
+                                [
+                                    ("{client_path}", client_path.as_os_str()),
+                                    ("{server_filename}", &server_filename),
+                                ]
+                                .into_iter(),
+                            )
+                        }))
                         .spawn()
                         .expect("could not spawn `copy_to_server` command");
                     copy.wait().await?;
@@ -139,27 +132,6 @@ pub(crate) async fn main(config: Config) -> io::Result<()> {
 #[cfg(test)]
 mod test {
     use super::*;
-
-    #[test]
-    fn replace_filepaths_nothing_to_replace() {
-        let arg = "foo-client_path";
-        let out = replace_filepaths(arg, "./client.file".as_ref(), "on-server".as_ref());
-        assert_eq!(out, arg);
-    }
-
-    #[test]
-    fn replace_filepaths_client() {
-        let arg = "server_filename:{client_path}";
-        let out = replace_filepaths(arg, "./client.file".as_ref(), "on-server".as_ref());
-        assert_eq!(out, "server_filename:./client.file");
-    }
-
-    #[test]
-    fn replace_filepaths_server() {
-        let arg = "{server_filename}";
-        let out = replace_filepaths(arg, "./client.file".as_ref(), "on-server".as_ref());
-        assert_eq!(out, "on-server");
-    }
 
     #[test]
     fn write_read_default_config() {

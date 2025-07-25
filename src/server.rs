@@ -1,9 +1,4 @@
-use std::{
-    ffi::OsString,
-    io,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{io, path::PathBuf, sync::Arc};
 
 use crate::{NewFileToProcess, Receipt, WriteFramedJson, file_hash, replace_os_strings};
 use futures_util::{SinkExt, TryStreamExt};
@@ -34,10 +29,6 @@ impl Default for Config {
     }
 }
 
-fn replace_filepaths(arg: &str, file_path: &Path) -> OsString {
-    replace_os_strings(arg, [("{file_path}", file_path.as_os_str())].into_iter())
-}
-
 async fn processing_pipeline(
     file: NewFileToProcess,
     channel: Arc<Mutex<WriteFramedJson<Receipt>>>,
@@ -62,14 +53,13 @@ async fn processing_pipeline(
     };
     channel.lock().await.send(receipt).await.unwrap();
 
-    let mut processing = Command::new(&config.processing[0])
-        .args(
-            config.processing[1..]
-                .iter()
-                .map(|a| replace_filepaths(a, &server_path)),
-        )
-        .spawn()
-        .expect("could not spawn `copy_to_server` command");
+    let mut processing =
+        Command::new(&config.processing[0])
+            .args(config.processing[1..].iter().map(|a| {
+                replace_os_strings(a, [("{file_path}", server_path.as_os_str())].into_iter())
+            }))
+            .spawn()
+            .expect("could not spawn `copy_to_server` command");
     processing.wait().await.unwrap();
 }
 
@@ -102,20 +92,6 @@ pub(crate) async fn main(config: Config) -> io::Result<()> {
 #[cfg(test)]
 mod test {
     use super::*;
-
-    #[test]
-    fn replace_filepaths_nothing_to_replace() {
-        let arg = "foo-file_path";
-        let out = replace_filepaths(arg, "./server.file".as_ref());
-        assert_eq!(out, arg);
-    }
-
-    #[test]
-    fn replace_filepaths_replace_one() {
-        let arg = "file_path:{file_path}";
-        let out = replace_filepaths(arg, "./server.file".as_ref());
-        assert_eq!(out, "file_path:./server.file");
-    }
 
     #[test]
     fn write_read_default_config() {
