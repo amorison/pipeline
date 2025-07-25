@@ -21,7 +21,7 @@ impl Default for Config {
         Config {
             address: "127.0.0.1:12345".to_owned(),
             incoming_directory: "./server".into(),
-            processing: ["cp", "{file_path}", "{file_path}.tiff"]
+            processing: ["cp", "{server_path}", "./server/{client_file_stem}.tiff"]
                 .into_iter()
                 .map(ToOwned::to_owned)
                 .collect(),
@@ -53,13 +53,19 @@ async fn processing_pipeline(
     };
     channel.lock().await.send(receipt).await.unwrap();
 
-    let mut processing =
-        Command::new(&config.processing[0])
-            .args(config.processing[1..].iter().map(|a| {
-                replace_os_strings(a, [("{file_path}", server_path.as_os_str())].into_iter())
-            }))
-            .spawn()
-            .expect("could not spawn `copy_to_server` command");
+    let mut processing = Command::new(&config.processing[0])
+        .args(config.processing[1..].iter().map(|a| {
+            replace_os_strings(
+                a,
+                [
+                    ("{server_path}", server_path.as_os_str()),
+                    ("{client_file_stem}", spec.client_path.file_stem().unwrap()),
+                ]
+                .into_iter(),
+            )
+        }))
+        .spawn()
+        .expect("could not spawn `copy_to_server` command");
     processing.wait().await.unwrap();
 }
 
