@@ -15,7 +15,7 @@ use tokio::{
     sync::Mutex,
 };
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub(crate) struct Config {
     address: String,
     incoming_directory: PathBuf,
@@ -119,5 +119,14 @@ mod test {
         let arg = "file_path:{file_path}";
         let out = replace_filepaths(arg, "./server.file".as_ref());
         assert_eq!(out, "file_path:./server.file");
+    }
+
+    #[test]
+    fn write_read_default_config() {
+        let conf_dflt = Config::default();
+        let conf_toml = toml::to_string_pretty(&conf_dflt).expect("failed to write config");
+        let conf_read: Config =
+            toml::from_slice(conf_toml.as_bytes()).expect("failed to read config");
+        assert_eq!(conf_read, conf_dflt);
     }
 }

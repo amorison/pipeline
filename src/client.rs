@@ -16,7 +16,7 @@ use tokio::{fs, net::TcpStream, process::Command};
 
 type Db = Arc<Mutex<HashSet<PathBuf>>>;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub(crate) struct Config {
     server: String,
     copy_to_server: Vec<String>,
@@ -41,7 +41,7 @@ impl Default for Config {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
 struct Watching {
     directory: PathBuf,
     extension: String,
@@ -157,5 +157,14 @@ mod test {
         let arg = "{server_filename}";
         let out = replace_filepaths(arg, "./client.file".as_ref(), "on-server".as_ref());
         assert_eq!(out, "on-server");
+    }
+
+    #[test]
+    fn write_read_default_config() {
+        let conf_dflt = Config::default();
+        let conf_toml = toml::to_string_pretty(&conf_dflt).expect("failed to write config");
+        let conf_read: Config =
+            toml::from_slice(conf_toml.as_bytes()).expect("failed to read config");
+        assert_eq!(conf_read, conf_dflt);
     }
 }
