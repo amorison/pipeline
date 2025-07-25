@@ -102,3 +102,22 @@ pub(crate) async fn main(config: Config) -> io::Result<()> {
         tokio::spawn(handle_client(socket, config.clone()));
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn replace_filepaths_nothing_to_replace() {
+        let arg = "foo-file_path";
+        let out = replace_filepaths(arg, "./server.file".as_ref());
+        assert_eq!(out, arg);
+    }
+
+    #[test]
+    fn replace_filepaths_replace_one() {
+        let arg = "file_path:{file_path}";
+        let out = replace_filepaths(arg, "./server.file".as_ref());
+        assert_eq!(out, "file_path:./server.file");
+    }
+}
