@@ -133,3 +133,29 @@ pub(crate) async fn main(config: Config) -> io::Result<()> {
         res = watch_dir(to_server, db, config) => res,
     )
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn replace_filepaths_nothing_to_replace() {
+        let arg = "foo-client_path";
+        let out = replace_filepaths(arg, "./client.file".as_ref(), "on-server".as_ref());
+        assert_eq!(out, arg);
+    }
+
+    #[test]
+    fn replace_filepaths_client() {
+        let arg = "server_filename:{client_path}";
+        let out = replace_filepaths(arg, "./client.file".as_ref(), "on-server".as_ref());
+        assert_eq!(out, "server_filename:./client.file");
+    }
+
+    #[test]
+    fn replace_filepaths_server() {
+        let arg = "{server_filename}";
+        let out = replace_filepaths(arg, "./client.file".as_ref(), "on-server".as_ref());
+        assert_eq!(out, "on-server");
+    }
+}
