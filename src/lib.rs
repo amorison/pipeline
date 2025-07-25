@@ -94,3 +94,32 @@ fn framed_json_channel<R, W>(stream: TcpStream) -> (ReadFramedJson<R>, WriteFram
     );
     (read_half, write_half)
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn replace_osstr_nothing_to_replace() {
+        let arg = "foo-file_path";
+        let out = replace_os_strings(arg, [("{foo}", "bar".as_ref())].into_iter());
+        assert_eq!(out, arg);
+    }
+
+    #[test]
+    fn replace_osstr_one() {
+        let arg = "foo-{file_path}";
+        let out = replace_os_strings(arg, [("{file_path}", "./server.file".as_ref())].into_iter());
+        assert_eq!(out, "foo-./server.file");
+    }
+
+    #[test]
+    fn replace_osstr_two() {
+        let arg = "{foo} {bar}";
+        let out = replace_os_strings(
+            arg,
+            [("{foo}", "hello".as_ref()), ("{bar}", "world".as_ref())].into_iter(),
+        );
+        assert_eq!(out, "hello world");
+    }
+}
