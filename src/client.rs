@@ -83,14 +83,14 @@ async fn watch_dir(
                     && last_modif > Duration::from_secs(conf.watching.last_modif_secs)
                     && insert_clone(&db, &client_path)
                 {
-                    let server_filename = client_path.file_name().unwrap().to_owned();
+                    let nfp = NewFileToProcess::new(client_path)?;
                     let mut copy = Command::new(&conf.copy_to_server[0])
                         .args(conf.copy_to_server[1..].iter().map(|a| {
                             replace_os_strings(
                                 a,
                                 [
-                                    ("{client_path}", client_path.as_os_str()),
-                                    ("{server_filename}", &server_filename),
+                                    ("{client_path}", nfp.0.client_path.as_os_str()),
+                                    ("{server_filename}", nfp.server_filename()),
                                 ]
                                 .into_iter(),
                             )
@@ -98,7 +98,6 @@ async fn watch_dir(
                         .spawn()
                         .expect("could not spawn `copy_to_server` command");
                     copy.wait().await?;
-                    let nfp = NewFileToProcess::new(client_path, server_filename)?;
                     to_server.send(nfp).await?;
                 }
             }

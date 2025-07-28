@@ -34,9 +34,9 @@ async fn processing_pipeline(
     channel: Arc<Mutex<WriteFramedJson<Receipt>>>,
     config: Arc<Config>,
 ) {
-    let NewFileToProcess(spec) = file;
     let mut server_path = config.incoming_directory.clone();
-    server_path.push(&spec.server_filename);
+    server_path.push(file.server_filename());
+    let NewFileToProcess(spec) = file;
 
     let receipt = match file_hash(&server_path) {
         Ok(received_hash) => {
