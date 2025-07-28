@@ -65,7 +65,10 @@ enum Receipt {
         spec: FileSpec,
         received_hash: String,
     },
-    Error(String),
+    Error {
+        spec: FileSpec,
+        error: String,
+    },
 }
 
 impl FileSpec {

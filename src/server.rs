@@ -48,7 +48,10 @@ async fn processing_pipeline(
                 }
             }
         }
-        Err(err) => Receipt::Error(err.to_string()),
+        Err(err) => Receipt::Error {
+            spec: file.clone(),
+            error: err.to_string(),
+        },
     };
     let continue_processing = receipt.continue_processing();
     channel.lock().await.send(receipt).await.unwrap();

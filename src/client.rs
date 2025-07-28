@@ -1,16 +1,10 @@
-use std::{
-    collections::HashSet,
-    io,
-    path::PathBuf,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{collections::HashSet, io, path::PathBuf, sync::Arc, time::Duration};
 
 use crate::{FileSpec, ReadFramedJson, Receipt, WriteFramedJson, replace_os_strings};
 use futures_util::TryStreamExt;
 use futures_util::sink::SinkExt;
 use serde::{Deserialize, Serialize};
-use tokio::{fs, net::TcpStream, process::Command};
+use tokio::{fs, net::TcpStream, process::Command, sync::Mutex};
 
 type Db = Arc<Mutex<HashSet<PathBuf>>>;
 
@@ -47,7 +41,12 @@ struct Watching {
     refresh_every_secs: u64,
 }
 
-async fn listen_to_server(mut from_server: ReadFramedJson<Receipt>, db: Db) -> io::Result<()> {
+async fn listen_to_server(
+    mut from_server: ReadFramedJson<Receipt>,
+    to_server: Arc<Mutex<WriteFramedJson<FileSpec>>>,
+    db: Db,
+    conf: Arc<Config>,
+) -> io::Result<()> {
     while let Some(msg) = from_server.try_next().await? {
         match msg {
             Receipt::Received(spec) => {
@@ -56,8 +55,16 @@ async fn listen_to_server(mut from_server: ReadFramedJson<Receipt>, db: Db) -> i
                 let in_db = db.try_lock().unwrap().remove(path);
                 println!("Client got confirmation for {spec:?}, was in db: {in_db}");
             }
-            Receipt::DifferentHash { .. } => todo!(),
-            Receipt::Error(_) => todo!(),
+            Receipt::DifferentHash { spec, .. } => {
+                println!(
+                    "Client got told by server {spec:?} doesn't have expected hash, resending"
+                );
+                send_file_to_server(to_server.clone(), spec, conf.clone()).await?;
+            }
+            Receipt::Error { spec, error } => {
+                println!("Client got told by server '{error}' for {spec:?}, resending");
+                send_file_to_server(to_server.clone(), spec, conf.clone()).await?;
+            }
         }
     }
     Err(io::Error::new(
@@ -66,7 +73,11 @@ async fn listen_to_server(mut from_server: ReadFramedJson<Receipt>, db: Db) -> i
     ))
 }
 
-async fn send_file_to_server(spec: FileSpec, conf: Arc<Config>) -> io::Result<()> {
+async fn send_file_to_server(
+    to_server: Arc<Mutex<WriteFramedJson<FileSpec>>>,
+    spec: FileSpec,
+    conf: Arc<Config>,
+) -> io::Result<()> {
     let mut copy = Command::new(&conf.copy_to_server[0])
         .args(conf.copy_to_server[1..].iter().map(|a| {
             replace_os_strings(
@@ -81,15 +92,14 @@ async fn send_file_to_server(spec: FileSpec, conf: Arc<Config>) -> io::Result<()
         .spawn()
         .expect("could not spawn `copy_to_server` command");
     copy.wait().await?;
-    Ok(())
+    to_server.lock().await.send(spec).await
 }
 
 async fn watch_dir(
-    mut to_server: WriteFramedJson<FileSpec>,
+    to_server: Arc<Mutex<WriteFramedJson<FileSpec>>>,
     db: Db,
-    conf: Config,
+    conf: Arc<Config>,
 ) -> io::Result<()> {
-    let conf = Arc::new(conf);
     loop {
         let mut files = fs::read_dir(&conf.watching.directory).await?;
         while let Some(entry) = files.next_entry().await? {
@@ -103,8 +113,7 @@ async fn watch_dir(
                     && insert_clone(&db, &client_path)
                 {
                     let nfp = FileSpec::new(client_path)?;
-                    send_file_to_server(nfp.clone(), conf.clone()).await?;
-                    to_server.send(nfp).await?;
+                    to_server.lock().await.send(nfp).await?;
                 }
             }
         }
@@ -126,10 +135,12 @@ pub(crate) async fn main(config: Config) -> io::Result<()> {
 
     let (from_server, to_server) = crate::framed_json_channel::<Receipt, FileSpec>(stream);
 
+    let to_server = Arc::new(Mutex::new(to_server));
     let db = Arc::new(Mutex::new(HashSet::new()));
+    let config = Arc::new(config);
 
     tokio::select!(
-        handle = tokio::spawn(listen_to_server(from_server, db.clone())) => handle.unwrap(),
+        handle = tokio::spawn(listen_to_server(from_server, to_server.clone(), db.clone(), config.clone())) => handle.unwrap(),
         res = watch_dir(to_server, db, config) => res,
     )
 }
