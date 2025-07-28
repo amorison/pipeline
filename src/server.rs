@@ -50,7 +50,11 @@ async fn processing_pipeline(
         }
         Err(err) => Receipt::Error(err.to_string()),
     };
+    let continue_processing = receipt.continue_processing();
     channel.lock().await.send(receipt).await.unwrap();
+    if !continue_processing {
+        return;
+    }
 
     let mut processing = Command::new(&config.processing[0])
         .args(config.processing[1..].iter().map(|a| {

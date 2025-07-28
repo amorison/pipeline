@@ -74,6 +74,12 @@ impl FileSpec {
     }
 }
 
+impl Receipt {
+    fn continue_processing(&self) -> bool {
+        matches!(self, Self::Received(_))
+    }
+}
+
 type ReadFramedJson<T> =
     SymmetricallyFramed<FramedRead<OwnedReadHalf, LengthDelimitedCodec>, T, SymmetricalJson<T>>;
 
