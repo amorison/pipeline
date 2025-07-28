@@ -1,6 +1,6 @@
 use std::{io, path::PathBuf, sync::Arc};
 
-use crate::{NewFileToProcess, Receipt, WriteFramedJson, file_hash, replace_os_strings};
+use crate::{FileSpec, Receipt, WriteFramedJson, file_hash, replace_os_strings};
 use futures_util::{SinkExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::{
@@ -30,21 +30,20 @@ impl Default for Config {
 }
 
 async fn processing_pipeline(
-    file: NewFileToProcess,
+    file: FileSpec,
     channel: Arc<Mutex<WriteFramedJson<Receipt>>>,
     config: Arc<Config>,
 ) {
     let mut server_path = config.incoming_directory.clone();
     server_path.push(file.server_filename());
-    let NewFileToProcess(spec) = file;
 
     let receipt = match file_hash(&server_path) {
         Ok(received_hash) => {
-            if spec.sha256_digest == received_hash {
-                Receipt::Received(spec.clone())
+            if file.sha256_digest == received_hash {
+                Receipt::Received(file.clone())
             } else {
                 Receipt::DifferentHash {
-                    spec: spec.clone(),
+                    spec: file.clone(),
                     received_hash,
                 }
             }
@@ -59,7 +58,7 @@ async fn processing_pipeline(
                 a,
                 [
                     ("{server_path}", server_path.as_os_str()),
-                    ("{client_file_stem}", spec.client_path.file_stem().unwrap()),
+                    ("{client_file_stem}", file.client_path.file_stem().unwrap()),
                 ]
                 .into_iter(),
             )
@@ -70,8 +69,7 @@ async fn processing_pipeline(
 }
 
 async fn handle_client(stream: TcpStream, config: Arc<Config>) -> io::Result<()> {
-    let (mut from_client, to_client) =
-        crate::framed_json_channel::<NewFileToProcess, Receipt>(stream);
+    let (mut from_client, to_client) = crate::framed_json_channel::<FileSpec, Receipt>(stream);
     let to_client = Arc::new(Mutex::new(to_client));
 
     while let Some(msg) = from_client.try_next().await? {

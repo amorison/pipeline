@@ -44,21 +44,17 @@ struct FileSpec {
     sha256_digest: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct NewFileToProcess(FileSpec);
-
-impl NewFileToProcess {
+impl FileSpec {
     fn new(client_path: PathBuf) -> io::Result<Self> {
         let sha256_digest = file_hash(&client_path)?;
-        let nfp = NewFileToProcess(FileSpec {
+        Ok(FileSpec {
             client_path,
             sha256_digest,
-        });
-        Ok(nfp)
+        })
     }
 
     fn server_filename(&self) -> &OsStr {
-        self.0.sha256_digest.as_ref()
+        self.sha256_digest.as_ref()
     }
 }
 

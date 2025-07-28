@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use crate::{NewFileToProcess, ReadFramedJson, Receipt, WriteFramedJson, replace_os_strings};
+use crate::{FileSpec, ReadFramedJson, Receipt, WriteFramedJson, replace_os_strings};
 use futures_util::TryStreamExt;
 use futures_util::sink::SinkExt;
 use serde::{Deserialize, Serialize};
@@ -67,7 +67,7 @@ async fn listen_to_server(mut from_server: ReadFramedJson<Receipt>, db: Db) -> i
 }
 
 async fn watch_dir(
-    mut to_server: WriteFramedJson<NewFileToProcess>,
+    mut to_server: WriteFramedJson<FileSpec>,
     db: Db,
     conf: Config,
 ) -> io::Result<()> {
@@ -83,13 +83,13 @@ async fn watch_dir(
                     && last_modif > Duration::from_secs(conf.watching.last_modif_secs)
                     && insert_clone(&db, &client_path)
                 {
-                    let nfp = NewFileToProcess::new(client_path)?;
+                    let nfp = FileSpec::new(client_path)?;
                     let mut copy = Command::new(&conf.copy_to_server[0])
                         .args(conf.copy_to_server[1..].iter().map(|a| {
                             replace_os_strings(
                                 a,
                                 [
-                                    ("{client_path}", nfp.0.client_path.as_os_str()),
+                                    ("{client_path}", nfp.client_path.as_os_str()),
                                     ("{server_filename}", nfp.server_filename()),
                                 ]
                                 .into_iter(),
@@ -118,7 +118,7 @@ fn insert_clone(db: &Db, path: &PathBuf) -> bool {
 pub(crate) async fn main(config: Config) -> io::Result<()> {
     let stream = TcpStream::connect(&config.server).await?;
 
-    let (from_server, to_server) = crate::framed_json_channel::<Receipt, NewFileToProcess>(stream);
+    let (from_server, to_server) = crate::framed_json_channel::<Receipt, FileSpec>(stream);
 
     let db = Arc::new(Mutex::new(HashSet::new()));
 
