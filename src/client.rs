@@ -66,11 +66,30 @@ async fn listen_to_server(mut from_server: ReadFramedJson<Receipt>, db: Db) -> i
     ))
 }
 
+async fn send_file_to_server(spec: FileSpec, conf: Arc<Config>) -> io::Result<()> {
+    let mut copy = Command::new(&conf.copy_to_server[0])
+        .args(conf.copy_to_server[1..].iter().map(|a| {
+            replace_os_strings(
+                a,
+                [
+                    ("{client_path}", spec.client_path.as_os_str()),
+                    ("{server_filename}", spec.server_filename()),
+                ]
+                .into_iter(),
+            )
+        }))
+        .spawn()
+        .expect("could not spawn `copy_to_server` command");
+    copy.wait().await?;
+    Ok(())
+}
+
 async fn watch_dir(
     mut to_server: WriteFramedJson<FileSpec>,
     db: Db,
     conf: Config,
 ) -> io::Result<()> {
+    let conf = Arc::new(conf);
     loop {
         let mut files = fs::read_dir(&conf.watching.directory).await?;
         while let Some(entry) = files.next_entry().await? {
@@ -84,20 +103,7 @@ async fn watch_dir(
                     && insert_clone(&db, &client_path)
                 {
                     let nfp = FileSpec::new(client_path)?;
-                    let mut copy = Command::new(&conf.copy_to_server[0])
-                        .args(conf.copy_to_server[1..].iter().map(|a| {
-                            replace_os_strings(
-                                a,
-                                [
-                                    ("{client_path}", nfp.client_path.as_os_str()),
-                                    ("{server_filename}", nfp.server_filename()),
-                                ]
-                                .into_iter(),
-                            )
-                        }))
-                        .spawn()
-                        .expect("could not spawn `copy_to_server` command");
-                    copy.wait().await?;
+                    send_file_to_server(nfp.clone(), conf.clone()).await?;
                     to_server.send(nfp).await?;
                 }
             }
