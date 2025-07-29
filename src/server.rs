@@ -68,7 +68,7 @@ async fn processing_pipeline(
     };
     let continue_processing = receipt.continue_processing();
     channel.lock().await.send(receipt).await.unwrap();
-    if !continue_processing {
+    if in_db || !continue_processing {
         return;
     }
 
