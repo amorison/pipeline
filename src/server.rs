@@ -3,6 +3,7 @@ use std::{io, path::PathBuf, sync::Arc};
 use crate::{FileSpec, Receipt, WriteFramedJson, file_hash, replace_os_strings};
 use futures_util::{SinkExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
+use sqlx::{Pool, Sqlite, SqlitePool, sqlite::SqliteConnectOptions};
 use tokio::{
     net::{TcpListener, TcpStream},
     process::Command,
@@ -33,25 +34,37 @@ async fn processing_pipeline(
     file: FileSpec,
     channel: Arc<Mutex<WriteFramedJson<Receipt>>>,
     config: Arc<Config>,
+    db: Pool<Sqlite>,
 ) {
     let mut server_path = config.incoming_directory.clone();
     server_path.push(file.server_filename());
 
-    let receipt = match file_hash(&server_path) {
-        Ok(received_hash) => {
-            if file.sha256_digest == received_hash {
-                Receipt::Received(file.clone())
-            } else {
-                Receipt::DifferentHash {
-                    spec: file.clone(),
-                    received_hash,
+    let in_db: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM files_in_pipeline WHERE hash = $1);")
+            .bind(&file.sha256_digest)
+            .fetch_one(&db)
+            .await
+            .expect("failed to read in db");
+
+    let receipt = if in_db {
+        Receipt::Received(file.clone())
+    } else {
+        match file_hash(&server_path) {
+            Ok(received_hash) => {
+                if file.sha256_digest == received_hash {
+                    Receipt::Received(file.clone())
+                } else {
+                    Receipt::DifferentHash {
+                        spec: file.clone(),
+                        received_hash,
+                    }
                 }
             }
+            Err(err) => Receipt::Error {
+                spec: file.clone(),
+                error: err.to_string(),
+            },
         }
-        Err(err) => Receipt::Error {
-            spec: file.clone(),
-            error: err.to_string(),
-        },
     };
     let continue_processing = receipt.continue_processing();
     channel.lock().await.send(receipt).await.unwrap();
@@ -72,22 +85,67 @@ async fn processing_pipeline(
         }))
         .spawn()
         .expect("could not spawn `copy_to_server` command");
-    processing.wait().await.unwrap();
+
+    sqlx::query("INSERT INTO files_in_pipeline (hash, date_utc, client_path, status) VALUES ($1, datetime('now'), $2, 'Processing');")
+        .bind(&file.sha256_digest)
+        .bind(file.client_path.as_os_str().as_encoded_bytes())
+        .execute(&db)
+        .await
+        .expect("failed to insert in db");
+
+    let status = match processing.wait().await {
+        Ok(status) if status.success() => "Done",
+        Ok(_) | Err(_) => "Failed",
+    };
+
+    sqlx::query(
+        "UPDATE files_in_pipeline SET date_utc = datetime('now'), status = $2 WHERE hash = $1;",
+    )
+    .bind(&file.sha256_digest)
+    .bind(status)
+    .execute(&db)
+    .await
+    .expect("failed to insert in db");
 }
 
-async fn handle_client(stream: TcpStream, config: Arc<Config>) -> io::Result<()> {
+async fn handle_client(stream: TcpStream, config: Arc<Config>, db: Pool<Sqlite>) -> io::Result<()> {
     let (mut from_client, to_client) = crate::framed_json_channel::<FileSpec, Receipt>(stream);
     let to_client = Arc::new(Mutex::new(to_client));
 
     while let Some(msg) = from_client.try_next().await? {
         println!("Server got: {msg:?}");
-        tokio::spawn(processing_pipeline(msg, to_client.clone(), config.clone()));
+        tokio::spawn(processing_pipeline(
+            msg,
+            to_client.clone(),
+            config.clone(),
+            db.clone(),
+        ));
     }
     Ok(())
 }
 
 pub(crate) async fn main(config: Config) -> io::Result<()> {
     let config = Arc::new(config);
+
+    let db = SqlitePool::connect_with(
+        SqliteConnectOptions::new()
+            .filename(".pipeline_server.db")
+            .create_if_missing(true),
+    )
+    .await
+    .expect("Connection to db failed");
+
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS files_in_pipeline (
+        hash TEXT PRIMARY KEY,
+        date_utc TEXT NOT NULL,
+        client_path BLOB NOT NULL,
+        status TEXT NOT NULL
+    ) STRICT;",
+    )
+    .execute(&db)
+    .await
+    .expect("Failed to create table in db");
 
     let listener = TcpListener::bind(&config.address).await?;
 
@@ -96,7 +154,7 @@ pub(crate) async fn main(config: Config) -> io::Result<()> {
     loop {
         let (socket, addr) = listener.accept().await?;
         println!("Server got connection request from {addr:?}");
-        tokio::spawn(handle_client(socket, config.clone()));
+        tokio::spawn(handle_client(socket, config.clone(), db.clone()));
     }
 }
 
