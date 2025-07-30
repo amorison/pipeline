@@ -22,10 +22,14 @@ impl Default for Config {
         Config {
             address: "127.0.0.1:12345".to_owned(),
             incoming_directory: "./server".into(),
-            processing: ["cp", "{server_path}", "./server/{client_file_stem}.tiff"]
-                .into_iter()
-                .map(ToOwned::to_owned)
-                .collect(),
+            processing: [
+                "cp",
+                "{server_path}",
+                "./server/{client_file_stem}-{hash}.tiff",
+            ]
+            .into_iter()
+            .map(ToOwned::to_owned)
+            .collect(),
         }
     }
 }
@@ -79,6 +83,7 @@ async fn processing_pipeline(
                 [
                     ("{server_path}", server_path.as_os_str()),
                     ("{client_file_stem}", file.client_path.file_stem().unwrap()),
+                    ("{hash}", file.sha256_digest.as_ref()),
                 ]
                 .into_iter(),
             )
