@@ -2,6 +2,7 @@ use std::{io, path::PathBuf, sync::Arc};
 
 use crate::{FileSpec, Receipt, WriteFramedJson, file_hash, replace_os_strings};
 use futures_util::{SinkExt, TryStreamExt};
+use log::info;
 use serde::Deserialize;
 use sqlx::{Pool, Sqlite, SqlitePool, sqlite::SqliteConnectOptions};
 use tokio::{
@@ -103,7 +104,7 @@ async fn handle_client(stream: TcpStream, config: Arc<Config>, db: Pool<Sqlite>)
     let to_client = Arc::new(Mutex::new(to_client));
 
     while let Some(msg) = from_client.try_next().await? {
-        println!("Server got: {msg:?}");
+        info!("received request {msg:?}");
         tokio::spawn(processing_pipeline(
             msg,
             to_client.clone(),
@@ -139,11 +140,11 @@ pub(crate) async fn main(config: Config) -> io::Result<()> {
 
     let listener = TcpListener::bind(&config.address).await?;
 
-    println!("Server listening on {:?}", listener.local_addr());
+    info!("listening on {:?}", listener.local_addr());
 
     loop {
         let (socket, addr) = listener.accept().await?;
-        println!("Server got connection request from {addr:?}");
+        info!("got connection request from {addr:?}");
         tokio::spawn(handle_client(socket, config.clone(), db.clone()));
     }
 }

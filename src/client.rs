@@ -3,6 +3,7 @@ use std::{collections::HashSet, io, path::PathBuf, sync::Arc, time::Duration};
 use crate::{FileSpec, ReadFramedJson, Receipt, WriteFramedJson, replace_os_strings};
 use futures_util::TryStreamExt;
 use futures_util::sink::SinkExt;
+use log::info;
 use serde::Deserialize;
 use tokio::{fs, net::TcpStream, process::Command, sync::Mutex};
 
@@ -36,17 +37,15 @@ async fn listen_to_server(
             Receipt::Received(spec) => {
                 let path = spec.client_path();
                 fs::remove_file(path).await?;
-                let in_db = db.try_lock().unwrap().remove(path);
-                println!("Client got confirmation for {spec:?}, was in db: {in_db}");
+                db.try_lock().unwrap().remove(path);
+                info!("server confirmed reception of {spec:?}");
             }
             Receipt::DifferentHash { spec, .. } => {
-                println!(
-                    "Client got told by server {spec:?} doesn't have expected hash, resending"
-                );
+                info!("server does not have expected hash for {spec:?}, resending");
                 send_file_to_server(to_server.clone(), spec, conf.clone()).await?;
             }
             Receipt::Error { spec, error } => {
-                println!("Client got told by server '{error}' for {spec:?}, resending");
+                info!("server says '{error}' for {spec:?}, resending");
                 send_file_to_server(to_server.clone(), spec, conf.clone()).await?;
             }
         }
