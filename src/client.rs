@@ -3,7 +3,7 @@ use std::{collections::HashSet, io, path::PathBuf, sync::Arc, time::Duration};
 use crate::{FileSpec, ReadFramedJson, Receipt, WriteFramedJson, replace_os_strings};
 use futures_util::TryStreamExt;
 use futures_util::sink::SinkExt;
-use log::info;
+use log::{info, warn};
 use serde::Deserialize;
 use tokio::{fs, net::TcpStream, process::Command, sync::Mutex};
 
@@ -35,18 +35,20 @@ async fn listen_to_server(
     while let Some(msg) = from_server.try_next().await? {
         match msg {
             Receipt::Received(spec) => {
-                let path = spec.client_path();
-                fs::remove_file(path).await?;
-                db.try_lock().unwrap().remove(path);
                 info!("server confirmed reception of {spec:?}");
+                let path = spec.client_path();
+                if let Err(err) = fs::remove_file(path).await {
+                    warn!("error when removing {path:?}: {err}");
+                }
+                db.try_lock().unwrap().remove(path);
             }
             Receipt::DifferentHash { spec, .. } => {
                 info!("server does not have expected hash for {spec:?}, resending");
-                send_file_to_server(to_server.clone(), spec, conf.clone()).await?;
+                send_file_to_server(to_server.clone(), spec, conf.clone()).await;
             }
             Receipt::Error { spec, error } => {
                 info!("server says '{error}' for {spec:?}, resending");
-                send_file_to_server(to_server.clone(), spec, conf.clone()).await?;
+                send_file_to_server(to_server.clone(), spec, conf.clone()).await;
             }
         }
     }
@@ -60,7 +62,8 @@ async fn send_file_to_server(
     to_server: Arc<Mutex<WriteFramedJson<FileSpec>>>,
     spec: FileSpec,
     conf: Arc<Config>,
-) -> io::Result<()> {
+) {
+    info!("copying {spec:?} to server");
     let mut copy = Command::new(&conf.copy_to_server[0])
         .args(conf.copy_to_server[1..].iter().map(|a| {
             replace_os_strings(
@@ -74,8 +77,19 @@ async fn send_file_to_server(
         }))
         .spawn()
         .expect("could not spawn `copy_to_server` command");
-    copy.wait().await?;
-    to_server.lock().await.send(spec).await
+    match copy.wait().await {
+        Ok(status) if status.success() => to_server
+            .lock()
+            .await
+            .send(spec)
+            .await
+            .expect("couldn't send request to server"),
+        Ok(status) => warn!(
+            "copy of {spec:?} to server failed with status {:?}",
+            status.code()
+        ),
+        Err(err) => warn!("copy of {spec:?} to server failed '{err}'"),
+    }
 }
 
 async fn watch_dir(
@@ -96,6 +110,7 @@ async fn watch_dir(
                     && insert_clone(&db, &client_path)
                 {
                     let nfp = FileSpec::new(client_path)?;
+                    info!("found file to process {nfp:?}");
                     to_server.lock().await.send(nfp).await?;
                 }
             }
