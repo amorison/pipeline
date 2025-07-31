@@ -3,37 +3,21 @@ use std::{collections::HashSet, io, path::PathBuf, sync::Arc, time::Duration};
 use crate::{FileSpec, ReadFramedJson, Receipt, WriteFramedJson, replace_os_strings};
 use futures_util::TryStreamExt;
 use futures_util::sink::SinkExt;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tokio::{fs, net::TcpStream, process::Command, sync::Mutex};
 
 type Db = Arc<Mutex<HashSet<PathBuf>>>;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Debug)]
 pub(crate) struct Config {
     server: String,
     copy_to_server: Vec<String>,
     watching: Watching,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Config {
-            server: "127.0.0.1:12345".to_owned(),
-            copy_to_server: ["cp", "{client_path}", "./server/{server_filename}"]
-                .into_iter()
-                .map(ToOwned::to_owned)
-                .collect(),
-            watching: Watching {
-                directory: "./client".into(),
-                extension: "mrc".to_owned(),
-                last_modif_secs: 10,
-                refresh_every_secs: 5,
-            },
-        }
-    }
-}
+pub(crate) static DEFAULT_TOML_CONF: &'static str = include_str!("default_client.toml");
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Debug)]
 struct Watching {
     directory: PathBuf,
     extension: String,
@@ -150,11 +134,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn write_read_default_config() {
-        let conf_dflt = Config::default();
-        let conf_toml = toml::to_string_pretty(&conf_dflt).expect("failed to write config");
-        let conf_read: Config =
-            toml::from_slice(conf_toml.as_bytes()).expect("failed to read config");
-        assert_eq!(conf_read, conf_dflt);
+    fn read_default_config() {
+        assert!(toml::from_slice::<Config>(DEFAULT_TOML_CONF.as_bytes()).is_ok());
     }
 }

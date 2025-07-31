@@ -2,7 +2,7 @@ use std::{io, path::PathBuf, sync::Arc};
 
 use crate::{FileSpec, Receipt, WriteFramedJson, file_hash, replace_os_strings};
 use futures_util::{SinkExt, TryStreamExt};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use sqlx::{Pool, Sqlite, SqlitePool, sqlite::SqliteConnectOptions};
 use tokio::{
     net::{TcpListener, TcpStream},
@@ -10,29 +10,14 @@ use tokio::{
     sync::Mutex,
 };
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Deserialize, Debug, PartialEq, Eq)]
 pub(crate) struct Config {
     address: String,
     incoming_directory: PathBuf,
     processing: Vec<String>,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Config {
-            address: "127.0.0.1:12345".to_owned(),
-            incoming_directory: "./server".into(),
-            processing: [
-                "cp",
-                "{server_path}",
-                "./server/{client_file_stem}-{hash}.tiff",
-            ]
-            .into_iter()
-            .map(ToOwned::to_owned)
-            .collect(),
-        }
-    }
-}
+pub(crate) static DEFAULT_TOML_CONF: &'static str = include_str!("default_server.toml");
 
 async fn processing_pipeline(
     file: FileSpec,
@@ -168,11 +153,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn write_read_default_config() {
-        let conf_dflt = Config::default();
-        let conf_toml = toml::to_string_pretty(&conf_dflt).expect("failed to write config");
-        let conf_read: Config =
-            toml::from_slice(conf_toml.as_bytes()).expect("failed to read config");
-        assert_eq!(conf_read, conf_dflt);
+    fn read_default_config() {
+        assert!(toml::from_slice::<Config>(DEFAULT_TOML_CONF.as_bytes()).is_ok());
     }
 }

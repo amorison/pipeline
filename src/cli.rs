@@ -4,7 +4,7 @@ use std::{
 };
 
 use clap::{Parser, Subcommand};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::{client, server};
 
@@ -49,13 +49,6 @@ fn conf_from_toml<T: for<'a> Deserialize<'a>>(path: &Path) -> io::Result<T> {
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))
 }
 
-fn default_conf_as_toml<T>() -> String
-where
-    T: Serialize + Default,
-{
-    toml::to_string_pretty(&T::default()).unwrap()
-}
-
 pub async fn main() -> io::Result<()> {
     let cli = Cli::parse();
     match &cli.command {
@@ -64,13 +57,13 @@ pub async fn main() -> io::Result<()> {
         Commands::PrintConfig {
             kind: ConfKind::Client,
         } => {
-            print!("{}", default_conf_as_toml::<client::Config>());
+            print!("{}", client::DEFAULT_TOML_CONF);
             Ok(())
         }
         Commands::PrintConfig {
             kind: ConfKind::Server,
         } => {
-            print!("{}", default_conf_as_toml::<server::Config>());
+            print!("{}", server::DEFAULT_TOML_CONF);
             Ok(())
         }
     }

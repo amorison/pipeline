@@ -1,0 +1,12 @@
+server = "127.0.0.1:12345"
+copy_to_server = [
+    "cp",
+    "{client_path}",
+    "./server/{server_filename}",
+]
+
+[watching]
+directory = "./client"
+extension = "mrc"
+last_modif_secs = 10
+refresh_every_secs = 5
