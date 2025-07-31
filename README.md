@@ -27,3 +27,10 @@ pipeline print-config client > client.toml
 # edit `client.toml` as required
 pipeline client client.toml
 ```
+
+The configuration files produced by the `print-config` command contain comments
+explaining each configuration option.
+
+Both the client and server processes are designed as long running processes
+with low CPU- and memory-footprints. They are intended to run as daemons to
+process a large number of files over hours, days, or longer durations.
