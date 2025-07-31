@@ -2,7 +2,7 @@ use std::{io, path::PathBuf, sync::Arc};
 
 use crate::{FileSpec, Receipt, WriteFramedJson, file_hash, replace_os_strings};
 use futures_util::{SinkExt, TryStreamExt};
-use log::info;
+use log::{info, warn};
 use serde::Deserialize;
 use sqlx::{Pool, Sqlite, SqlitePool, sqlite::SqliteConnectOptions};
 use tokio::{
@@ -62,6 +62,8 @@ async fn processing_pipeline(
         return;
     }
 
+    info!("starting processing for {file:?}");
+
     let mut processing = Command::new(&config.processing[0])
         .args(config.processing[1..].iter().map(|a| {
             replace_os_strings(
@@ -85,8 +87,21 @@ async fn processing_pipeline(
         .expect("failed to insert in db");
 
     let status = match processing.wait().await {
-        Ok(status) if status.success() => "Done",
-        Ok(_) | Err(_) => "Failed",
+        Ok(status) if status.success() => {
+            info!("processing of {file:?} completed successfully");
+            "Done"
+        }
+        Ok(status) => {
+            warn!(
+                "processing of {file:?} failed with code {:?}",
+                status.code()
+            );
+            "Failed"
+        }
+        Err(err) => {
+            warn!("processing of {file:?} failed: '{err}'");
+            "Failed"
+        }
     };
 
     sqlx::query(
