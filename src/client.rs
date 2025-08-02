@@ -16,7 +16,7 @@ pub(crate) struct Config {
     watching: Watching,
 }
 
-pub(crate) static DEFAULT_TOML_CONF: &'static str = include_str!("default_client.toml");
+pub(crate) static DEFAULT_TOML_CONF: &str = include_str!("default_client.toml");
 
 #[derive(Deserialize, Debug)]
 struct Watching {

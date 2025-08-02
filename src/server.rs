@@ -20,7 +20,7 @@ pub(crate) struct Config {
     processing: Vec<String>,
 }
 
-pub(crate) static DEFAULT_TOML_CONF: &'static str = include_str!("default_server.toml");
+pub(crate) static DEFAULT_TOML_CONF: &str = include_str!("default_server.toml");
 
 async fn processing_pipeline(
     file: FileSpec,
