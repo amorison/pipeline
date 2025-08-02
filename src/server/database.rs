@@ -1,0 +1,57 @@
+use sqlx::{Pool, Result, Sqlite, SqlitePool, sqlite::SqliteConnectOptions};
+
+use crate::FileSpec;
+
+#[derive(Clone)]
+pub(crate) struct Database(Pool<Sqlite>);
+
+impl Database {
+    pub(super) async fn create_if_missing() -> Result<Self> {
+        let pool = SqlitePool::connect_with(
+            SqliteConnectOptions::new()
+                .filename(".pipeline_server.db")
+                .create_if_missing(true),
+        )
+        .await?;
+
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS files_in_pipeline (
+                hash TEXT PRIMARY KEY,
+                date_utc TEXT NOT NULL,
+                client_path BLOB NOT NULL,
+                status TEXT NOT NULL
+            ) STRICT;",
+        )
+        .execute(&pool)
+        .await?;
+
+        Ok(Self(pool))
+    }
+
+    pub(super) async fn contains(&self, hash: &str) -> Result<bool> {
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM files_in_pipeline WHERE hash = $1);")
+            .bind(hash)
+            .fetch_one(&self.0)
+            .await
+    }
+
+    pub(super) async fn insert_new_processing(&self, file: &FileSpec) -> Result<()> {
+        sqlx::query("INSERT INTO files_in_pipeline (hash, date_utc, client_path, status) VALUES ($1, datetime('now'), $2, 'Processing');")
+            .bind(&file.sha256_digest)
+            .bind(file.client_path.as_os_str().as_encoded_bytes())
+            .execute(&self.0)
+            .await?;
+        Ok(())
+    }
+
+    pub(super) async fn update_status(&self, hash: &str, status: &str) -> Result<()> {
+        sqlx::query(
+            "UPDATE files_in_pipeline SET date_utc = datetime('now'), status = $2 WHERE hash = $1;",
+        )
+        .bind(hash)
+        .bind(status)
+        .execute(&self.0)
+        .await?;
+        Ok(())
+    }
+}

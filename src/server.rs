@@ -1,10 +1,12 @@
+mod database;
+
 use std::{io, path::PathBuf, sync::Arc};
 
 use crate::{FileSpec, Receipt, WriteFramedJson, file_hash, replace_os_strings};
+use database::Database;
 use futures_util::{SinkExt, TryStreamExt};
 use log::{info, warn};
 use serde::Deserialize;
-use sqlx::{Pool, Sqlite, SqlitePool, sqlite::SqliteConnectOptions};
 use tokio::{
     net::{TcpListener, TcpStream},
     process::Command,
@@ -24,17 +26,15 @@ async fn processing_pipeline(
     file: FileSpec,
     channel: Arc<Mutex<WriteFramedJson<Receipt>>>,
     config: Arc<Config>,
-    db: Pool<Sqlite>,
+    db: Database,
 ) {
     let mut server_path = config.incoming_directory.clone();
     server_path.push(file.server_filename());
 
-    let in_db: bool =
-        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM files_in_pipeline WHERE hash = $1);")
-            .bind(&file.sha256_digest)
-            .fetch_one(&db)
-            .await
-            .expect("failed to read in db");
+    let in_db = db
+        .contains(&file.sha256_digest)
+        .await
+        .expect("failed to read in db");
 
     let receipt = if in_db {
         Receipt::Received(file.clone())
@@ -79,10 +79,7 @@ async fn processing_pipeline(
         .spawn()
         .expect("could not spawn `copy_to_server` command");
 
-    sqlx::query("INSERT INTO files_in_pipeline (hash, date_utc, client_path, status) VALUES ($1, datetime('now'), $2, 'Processing');")
-        .bind(&file.sha256_digest)
-        .bind(file.client_path.as_os_str().as_encoded_bytes())
-        .execute(&db)
+    db.insert_new_processing(&file)
         .await
         .expect("failed to insert in db");
 
@@ -104,17 +101,12 @@ async fn processing_pipeline(
         }
     };
 
-    sqlx::query(
-        "UPDATE files_in_pipeline SET date_utc = datetime('now'), status = $2 WHERE hash = $1;",
-    )
-    .bind(&file.sha256_digest)
-    .bind(status)
-    .execute(&db)
-    .await
-    .expect("failed to insert in db");
+    db.update_status(&file.sha256_digest, status)
+        .await
+        .expect("failed to insert in db");
 }
 
-async fn handle_client(stream: TcpStream, config: Arc<Config>, db: Pool<Sqlite>) -> io::Result<()> {
+async fn handle_client(stream: TcpStream, config: Arc<Config>, db: Database) -> io::Result<()> {
     let (mut from_client, to_client) = crate::framed_json_channel::<FileSpec, Receipt>(stream);
     let to_client = Arc::new(Mutex::new(to_client));
 
@@ -133,25 +125,9 @@ async fn handle_client(stream: TcpStream, config: Arc<Config>, db: Pool<Sqlite>)
 pub(crate) async fn main(config: Config) -> io::Result<()> {
     let config = Arc::new(config);
 
-    let db = SqlitePool::connect_with(
-        SqliteConnectOptions::new()
-            .filename(".pipeline_server.db")
-            .create_if_missing(true),
-    )
-    .await
-    .expect("Connection to db failed");
-
-    sqlx::query(
-        "CREATE TABLE IF NOT EXISTS files_in_pipeline (
-        hash TEXT PRIMARY KEY,
-        date_utc TEXT NOT NULL,
-        client_path BLOB NOT NULL,
-        status TEXT NOT NULL
-    ) STRICT;",
-    )
-    .execute(&db)
-    .await
-    .expect("Failed to create table in db");
+    let db = Database::create_if_missing()
+        .await
+        .expect("failed to create database");
 
     let listener = TcpListener::bind(&config.address).await?;
 
