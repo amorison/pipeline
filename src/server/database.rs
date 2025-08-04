@@ -2,6 +2,23 @@ use sqlx::{Pool, Result, Sqlite, SqlitePool, sqlite::SqliteConnectOptions};
 
 use crate::FileSpec;
 
+#[derive(Copy, Clone)]
+pub(super) enum ProcessStatus {
+    Processing,
+    Failed,
+    Done,
+}
+
+impl AsRef<str> for ProcessStatus {
+    fn as_ref(&self) -> &str {
+        match self {
+            ProcessStatus::Processing => "Processing",
+            ProcessStatus::Failed => "Failed",
+            ProcessStatus::Done => "Done",
+        }
+    }
+}
+
 #[derive(Clone)]
 pub(crate) struct Database(Pool<Sqlite>);
 
@@ -36,20 +53,21 @@ impl Database {
     }
 
     pub(super) async fn insert_new_processing(&self, file: &FileSpec) -> Result<()> {
-        sqlx::query("INSERT INTO files_in_pipeline (hash, date_utc, client_path, status) VALUES ($1, datetime('now'), $2, 'Processing');")
+        sqlx::query("INSERT INTO files_in_pipeline (hash, date_utc, client_path, status) VALUES ($1, datetime('now'), $2, $3);")
             .bind(&file.sha256_digest)
             .bind(file.client_path.as_os_str().as_encoded_bytes())
+            .bind(ProcessStatus::Processing.as_ref())
             .execute(&self.0)
             .await?;
         Ok(())
     }
 
-    pub(super) async fn update_status(&self, hash: &str, status: &str) -> Result<()> {
+    pub(super) async fn update_status(&self, hash: &str, status: ProcessStatus) -> Result<()> {
         sqlx::query(
             "UPDATE files_in_pipeline SET date_utc = datetime('now'), status = $2 WHERE hash = $1;",
         )
         .bind(hash)
-        .bind(status)
+        .bind(status.as_ref())
         .execute(&self.0)
         .await?;
         Ok(())

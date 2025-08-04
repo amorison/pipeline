@@ -3,7 +3,7 @@ mod database;
 use std::{io, path::PathBuf, sync::Arc};
 
 use crate::{FileSpec, Receipt, WriteFramedJson, file_hash, replace_os_strings};
-use database::Database;
+use database::{Database, ProcessStatus};
 use futures_util::{SinkExt, TryStreamExt};
 use log::{info, warn};
 use serde::Deserialize;
@@ -86,18 +86,18 @@ async fn processing_pipeline(
     let status = match processing.wait().await {
         Ok(status) if status.success() => {
             info!("processing of {file:?} completed successfully");
-            "Done"
+            ProcessStatus::Done
         }
         Ok(status) => {
             warn!(
                 "processing of {file:?} failed with code {:?}",
                 status.code()
             );
-            "Failed"
+            ProcessStatus::Failed
         }
         Err(err) => {
             warn!("processing of {file:?} failed: '{err}'");
-            "Failed"
+            ProcessStatus::Failed
         }
     };
 
