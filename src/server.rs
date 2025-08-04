@@ -69,9 +69,9 @@ async fn processing_pipeline(
             replace_os_strings(
                 a,
                 [
+                    ("{hash}", file.sha256_digest.as_ref()),
                     ("{server_path}", server_path.as_os_str()),
                     ("{client_file_stem}", file.client_path.file_stem().unwrap()),
-                    ("{hash}", file.sha256_digest.as_ref()),
                 ]
                 .into_iter(),
             )

@@ -69,8 +69,8 @@ async fn send_file_to_server(
             replace_os_strings(
                 a,
                 [
-                    ("{client_path}", spec.client_path.as_os_str()),
                     ("{server_filename}", spec.server_filename()),
+                    ("{client_path}", spec.client_path.as_os_str()),
                 ]
                 .into_iter(),
             )
