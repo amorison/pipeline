@@ -1,6 +1,6 @@
 mod database;
 
-use std::{io, path::PathBuf, sync::Arc};
+use std::{io, net::SocketAddr, path::PathBuf, sync::Arc};
 
 use crate::{FileSpec, Receipt, WriteFramedJson, file_hash, replace_os_strings};
 use database::{Database, ProcessStatus};
@@ -106,12 +106,19 @@ async fn processing_pipeline(
         .expect("failed to insert in db");
 }
 
-async fn handle_client(stream: TcpStream, config: Arc<Config>, db: Database) -> io::Result<()> {
+async fn handle_client(
+    stream: TcpStream,
+    addr: SocketAddr,
+    config: Arc<Config>,
+    db: Database,
+) -> io::Result<()> {
+    info!("got connection request from {addr:?}");
+
     let (mut from_client, to_client) = crate::framed_json_channel::<FileSpec, Receipt>(stream);
     let to_client = Arc::new(Mutex::new(to_client));
 
     while let Some(msg) = from_client.try_next().await? {
-        info!("received request {msg:?}");
+        info!("received request from {addr:?}: {msg:?}");
         tokio::spawn(processing_pipeline(
             msg,
             to_client.clone(),
@@ -119,6 +126,8 @@ async fn handle_client(stream: TcpStream, config: Arc<Config>, db: Database) -> 
             db.clone(),
         ));
     }
+
+    info!("client {addr:?} closed connection");
     Ok(())
 }
 
@@ -135,8 +144,7 @@ pub(crate) async fn main(config: Config) -> io::Result<()> {
 
     loop {
         let (socket, addr) = listener.accept().await?;
-        info!("got connection request from {addr:?}");
-        tokio::spawn(handle_client(socket, config.clone(), db.clone()));
+        tokio::spawn(handle_client(socket, addr, config.clone(), db.clone()));
     }
 }
 
