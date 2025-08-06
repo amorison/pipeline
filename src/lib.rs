@@ -40,21 +40,32 @@ where
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct FileSpec {
-    client_path: PathBuf,
+    filename: String,
     sha256_digest: String,
 }
 
 impl FileSpec {
     fn new(client_path: PathBuf) -> io::Result<Self> {
         let sha256_digest = file_hash(&client_path)?;
+        let filename = client_path
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_owned();
         Ok(FileSpec {
-            client_path,
+            filename,
             sha256_digest,
         })
     }
 
     fn server_filename(&self) -> &OsStr {
         self.sha256_digest.as_ref()
+    }
+
+    fn file_stem(&self) -> &OsStr {
+        let path: &Path = self.filename.as_ref();
+        path.file_stem().unwrap()
     }
 }
 
@@ -69,12 +80,6 @@ enum Receipt {
         spec: FileSpec,
         error: String,
     },
-}
-
-impl FileSpec {
-    pub fn client_path(&self) -> &Path {
-        &self.client_path
-    }
 }
 
 impl Receipt {

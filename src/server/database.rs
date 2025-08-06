@@ -35,7 +35,7 @@ impl Database {
             "CREATE TABLE IF NOT EXISTS files_in_pipeline (
                 hash TEXT PRIMARY KEY,
                 date_utc TEXT NOT NULL,
-                client_path BLOB NOT NULL,
+                file_name TEXT NOT NULL,
                 status TEXT NOT NULL
             ) STRICT;",
         )
@@ -53,9 +53,9 @@ impl Database {
     }
 
     pub(super) async fn insert_new_processing(&self, file: &FileSpec) -> Result<()> {
-        sqlx::query("INSERT INTO files_in_pipeline (hash, date_utc, client_path, status) VALUES ($1, datetime('now'), $2, $3);")
+        sqlx::query("INSERT INTO files_in_pipeline (hash, date_utc, file_name, status) VALUES ($1, datetime('now'), $2, $3);")
             .bind(&file.sha256_digest)
-            .bind(file.client_path.as_os_str().as_encoded_bytes())
+            .bind(&file.filename)
             .bind(ProcessStatus::Processing.as_ref())
             .execute(&self.0)
             .await?;

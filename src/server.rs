@@ -71,7 +71,7 @@ async fn processing_pipeline(
                 [
                     ("{hash}", file.sha256_digest.as_ref()),
                     ("{server_path}", server_path.as_os_str()),
-                    ("{client_file_stem}", file.client_path.file_stem().unwrap()),
+                    ("{client_file_stem}", file.file_stem()),
                 ]
                 .into_iter(),
             )

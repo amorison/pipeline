@@ -1,4 +1,11 @@
-use std::{collections::HashSet, io, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    collections::HashSet,
+    ffi::OsStr,
+    io,
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::Duration,
+};
 
 use crate::{FileSpec, ReadFramedJson, Receipt, WriteFramedJson, replace_os_strings};
 use futures_util::TryStreamExt;
@@ -26,6 +33,12 @@ struct Watching {
     refresh_every_secs: u64,
 }
 
+impl Config {
+    fn watched_path(&self, filename: impl AsRef<Path>) -> PathBuf {
+        self.watching.directory.join(filename)
+    }
+}
+
 async fn listen_to_server(
     mut from_server: ReadFramedJson<Receipt>,
     to_server: Arc<Mutex<WriteFramedJson<FileSpec>>>,
@@ -36,7 +49,7 @@ async fn listen_to_server(
         match msg {
             Receipt::Received(spec) => {
                 info!("server confirmed reception of {spec:?}");
-                let path = spec.client_path();
+                let path = &conf.watched_path(spec.filename);
                 if let Err(err) = fs::remove_file(path).await {
                     warn!("error when removing {path:?}: {err}");
                 }
@@ -70,7 +83,10 @@ async fn send_file_to_server(
                 a,
                 [
                     ("{server_filename}", spec.server_filename()),
-                    ("{client_path}", spec.client_path.as_os_str()),
+                    (
+                        "{client_path}",
+                        conf.watched_path(&spec.filename).as_os_str(),
+                    ),
                 ]
                 .into_iter(),
             )
@@ -101,10 +117,11 @@ async fn watch_dir(
         let mut files = fs::read_dir(&conf.watching.directory).await?;
         while let Some(entry) = files.next_entry().await? {
             if entry.file_type().await?.is_file() {
-                let client_path = entry.path().canonicalize()?;
+                let client_path = entry.path();
                 if client_path
                     .extension()
                     .is_some_and(|ext| *ext == *conf.watching.extension)
+                    && client_path.file_name().map(OsStr::to_str).is_some()
                     && let Ok(last_modif) = client_path.metadata()?.modified()?.elapsed()
                     && last_modif > Duration::from_secs(conf.watching.last_modif_secs)
                     && insert_clone(&db, &client_path)
