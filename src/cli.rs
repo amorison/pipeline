@@ -54,16 +54,12 @@ pub async fn main() -> io::Result<()> {
     match &cli.command {
         Commands::Client { config } => client::main(conf_from_toml(config)?).await,
         Commands::Server { config } => server::main(conf_from_toml(config)?).await,
-        Commands::PrintConfig {
-            kind: ConfKind::Client,
-        } => {
-            print!("{}", client::DEFAULT_TOML_CONF);
-            Ok(())
-        }
-        Commands::PrintConfig {
-            kind: ConfKind::Server,
-        } => {
-            print!("{}", server::DEFAULT_TOML_CONF);
+        Commands::PrintConfig { kind } => {
+            let content = match kind {
+                ConfKind::Client => client::DEFAULT_TOML_CONF,
+                ConfKind::Server => server::DEFAULT_TOML_CONF,
+            };
+            print!("{content}");
             Ok(())
         }
     }
