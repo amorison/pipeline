@@ -44,20 +44,17 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.88
         with:
           targets: ${{ matrix.platform.target }}
-      - run: cargo build --release --target ${{ matrix.platform.target }}
-      - name: build archive
+      - name: build
         shell: bash
         run: |
+          cargo build --release --target ${{ matrix.platform.target }}
           binname="pipeline"
-          dirname="$binname-${{ matrix.platform.target }}"
-          mkdir "$dirname"
           if [ "${{ matrix.platform.os }}" = "windows-latest" ]; then
-            mv "target/${{ matrix.platform.target }}/release/$binname.exe" "$dirname"
+            target="target/${{ matrix.platform.target }}/release/$binname.exe"
           else
-            mv "target/${{ matrix.platform.target }}/release/$binname" "$dirname"
+            target="target/${{ matrix.platform.target }}/release/$binname"
           fi
-          7z a "$dirname.zip" "$dirname"
-          echo "ASSET=$dirname.zip" >> $GITHUB_ENV
+          echo "ASSET=$target" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v4
         with:
           name: pipeline-${{ matrix.platform.target }}
