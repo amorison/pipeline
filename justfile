@@ -18,8 +18,8 @@ setup:
     echo '*' > dummy-folder/.gitignore
     just create-rand-file
     just create-rand-file
-    cargo run -- print-config client > dummy-folder/client.toml
-    cargo run -- print-config server > dummy-folder/server.toml
+    cargo run -- print-config client dummy-folder/client.toml
+    cargo run -- print-config server dummy-folder/server.toml
 
 # create random file on client
 create-rand-file:

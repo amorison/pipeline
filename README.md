@@ -15,7 +15,7 @@ Communication between the server and the clients occurs over TCP.
 You can create a configuration file and start the server with:
 
 ```shell
-pipeline print-config server > server.toml
+pipeline print-config server server.toml
 # edit `server.toml` as required
 pipeline server server.toml
 ```
@@ -23,7 +23,7 @@ pipeline server server.toml
 Similarly on the clients:
 
 ```shell
-pipeline print-config client > client.toml
+pipeline print-config client client.toml
 # edit `client.toml` as required
 pipeline client client.toml
 ```
