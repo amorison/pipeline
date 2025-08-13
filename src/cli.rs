@@ -38,9 +38,15 @@ enum Commands {
 #[derive(Subcommand)]
 enum ConfKind {
     /// Print out client configuration
-    Client,
+    Client {
+        /// Print configuration to this file, otherwise stdout
+        path: Option<PathBuf>,
+    },
     /// Print out server configuration
-    Server,
+    Server {
+        /// Print configuration to this file, otherwise stdout
+        path: Option<PathBuf>,
+    },
 }
 
 fn conf_from_toml<T: for<'a> Deserialize<'a>>(path: &Path) -> io::Result<T> {
@@ -55,11 +61,14 @@ pub async fn main() -> io::Result<()> {
         Commands::Client { config } => client::main(conf_from_toml(config)?).await,
         Commands::Server { config } => server::main(conf_from_toml(config)?).await,
         Commands::PrintConfig { kind } => {
-            let content = match kind {
-                ConfKind::Client => client::DEFAULT_TOML_CONF,
-                ConfKind::Server => server::DEFAULT_TOML_CONF,
+            let (content, path) = match kind {
+                ConfKind::Client { path } => (client::DEFAULT_TOML_CONF, path),
+                ConfKind::Server { path } => (server::DEFAULT_TOML_CONF, path),
             };
-            print!("{content}");
+            match path {
+                Some(path) => fs::write(path, content)?,
+                None => print!("{content}"),
+            }
             Ok(())
         }
     }
