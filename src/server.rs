@@ -1,4 +1,4 @@
-mod database;
+pub(crate) mod database;
 
 use std::{io, net::SocketAddr, path::PathBuf, sync::Arc};
 

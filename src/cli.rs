@@ -6,7 +6,7 @@ use std::{
 use clap::{Parser, Subcommand};
 use serde::Deserialize;
 
-use crate::{client, server};
+use crate::{client, query_db, server};
 
 /// Processing pipeline utility
 #[derive(Parser)]
@@ -33,6 +33,8 @@ enum Commands {
         #[command(subcommand)]
         kind: ConfKind,
     },
+    /// Print server database content
+    Db,
 }
 
 #[derive(Subcommand)]
@@ -71,6 +73,7 @@ pub async fn main() -> io::Result<()> {
             }
             Ok(())
         }
+        Commands::Db => query_db::main().await,
     }
 }
 

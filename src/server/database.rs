@@ -1,12 +1,26 @@
-use sqlx::{Pool, Result, Sqlite, SqlitePool, sqlite::SqliteConnectOptions};
+use sqlx::{
+    Pool, Result, Sqlite, SqlitePool,
+    prelude::{FromRow, Type},
+    sqlite::SqliteConnectOptions,
+};
+use tabled::Tabled;
 
 use crate::FileSpec;
 
-#[derive(Copy, Clone)]
-pub(super) enum ProcessStatus {
+#[derive(Copy, Clone, Type, Debug)]
+pub(crate) enum ProcessStatus {
     Processing,
     Failed,
     Done,
+}
+
+#[derive(FromRow, Tabled)]
+pub(crate) struct FileInPipeline {
+    hash: String,
+    date_utc: String,
+    file_name: String,
+    #[tabled(format = "{:?}")]
+    status: ProcessStatus,
 }
 
 impl AsRef<str> for ProcessStatus {
@@ -23,6 +37,17 @@ impl AsRef<str> for ProcessStatus {
 pub(crate) struct Database(Pool<Sqlite>);
 
 impl Database {
+    pub(crate) async fn read_only() -> Result<Self> {
+        let pool = SqlitePool::connect_with(
+            SqliteConnectOptions::new()
+                .filename(".pipeline_server.db")
+                .read_only(true),
+        )
+        .await?;
+
+        Ok(Self(pool))
+    }
+
     pub(super) async fn create_if_missing() -> Result<Self> {
         let pool = SqlitePool::connect_with(
             SqliteConnectOptions::new()
@@ -43,6 +68,12 @@ impl Database {
         .await?;
 
         Ok(Self(pool))
+    }
+
+    pub(crate) async fn content(&self) -> Result<Vec<FileInPipeline>> {
+        sqlx::query_as("SELECT * FROM files_in_pipeline;")
+            .fetch_all(&self.0)
+            .await
     }
 
     pub(super) async fn contains(&self, hash: &str) -> Result<bool> {

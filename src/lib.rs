@@ -1,5 +1,6 @@
 pub mod cli;
 mod client;
+mod query_db;
 mod server;
 
 use bstr::{ByteSlice, ByteVec};
