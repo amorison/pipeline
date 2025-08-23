@@ -44,7 +44,7 @@ struct SshTunnelConfig {
     accepted_ssh_keys: Vec<String>,
 }
 
-pub(crate) static DEFAULT_TOML_CONF: &str = include_str!("default_client.toml");
+pub(crate) static DEFAULT_TOML_CONF: &str = include_str!("client/default.toml");
 
 #[derive(Deserialize, Debug)]
 struct Watching {
