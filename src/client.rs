@@ -7,7 +7,7 @@ use std::{
     net::SocketAddr,
     path::{Path, PathBuf},
     str::FromStr,
-    sync::Arc,
+    sync::{Arc, LazyLock},
     time::Duration,
 };
 
@@ -44,7 +44,19 @@ struct SshTunnelConfig {
     accepted_ssh_keys: Vec<String>,
 }
 
-pub(crate) static DEFAULT_TOML_CONF: &str = include_str!("client/default.toml");
+pub(crate) static DEFAULT_TOML_CONF: LazyLock<String> = LazyLock::new(|| {
+    format!(
+        include_str!("client/default.toml"),
+        server_conf = r#"server = "127.0.0.1:12345""#
+    )
+});
+
+pub(crate) static TUNNEL_TOML_CONF: LazyLock<String> = LazyLock::new(|| {
+    format!(
+        include_str!("client/default.toml"),
+        server_conf = include_str!("client/tunnel.toml").trim_end()
+    )
+});
 
 #[derive(Deserialize, Debug)]
 struct Watching {
@@ -194,5 +206,10 @@ mod test {
     #[test]
     fn read_default_config() {
         assert!(toml::from_slice::<Config>(DEFAULT_TOML_CONF.as_bytes()).is_ok());
+    }
+
+    #[test]
+    fn read_tunnel_config() {
+        assert!(toml::from_slice::<Config>(TUNNEL_TOML_CONF.as_bytes()).is_ok());
     }
 }

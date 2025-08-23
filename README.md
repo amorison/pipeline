@@ -23,13 +23,14 @@ pipeline server server.toml
 Similarly on the clients:
 
 ```shell
-pipeline print-config client client.toml
+pipeline print-config client [--ssh-tunnel] client.toml
 # edit `client.toml` as required
 pipeline client client.toml
 ```
 
 The configuration files produced by the `print-config` command contain comments
-explaining each configuration option.
+explaining each configuration option. The `--ssh-tunnel` option produces a
+configuration file that uses SSH tunnelling to connect to the server.
 
 Both the client and server processes are designed as long running processes
 with low CPU- and memory-footprints. They are intended to run as daemons to

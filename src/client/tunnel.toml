@@ -1,0 +1,13 @@
+[server]
+# address of ssh host for tunnelling
+ssh_host = "192.168.0.1"
+# port of ssh host
+ssh_port = 22
+# username on ssh host
+ssh_user = "user"
+# address of pipeline server as seen from ssh host
+server_addr_from_host = "127.0.0.1"
+# port of pipeline server as seen from ssh host
+server_port_from_host = 12345
+# accepted keys from ssh host
+accepted_ssh_keys = []
