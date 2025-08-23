@@ -1,8 +1,5 @@
 # Configuration file for the pipeline client.
 
-# Location of the pipeline server, communication occurs via TCP.
-server = "127.0.0.1:12345"
-
 # Command to copy a file to the server for processing.
 # The following placeholders are replaced:
 # - `{client_path}` is the absolute path of the file on the client, see
@@ -17,6 +14,9 @@ copy_to_server = [
     "{client_path}",
     "./server/{server_filename}",
 ]
+
+# Location of the pipeline server, communication occurs via TCP.
+server = "127.0.0.1:12345"
 
 # Configure how file to process are discovered.
 [watching]
