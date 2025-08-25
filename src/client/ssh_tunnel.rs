@@ -79,7 +79,7 @@ async fn create_session(client: Client, conf: &SshTunnelConfig) -> Handle<Client
         SshAuth::Key { user, public_key } => {
             let public_key = fs::read_to_string(public_key)
                 .await
-                .expect(&format!("Failed to read public key {public_key:?}"));
+                .unwrap_or_else(|_| panic!("Failed to read public key {public_key:?}"));
             let public_key = PublicKey::from_openssh(&public_key).expect("Failed to parse key");
             let agent;
             #[cfg(unix)]

@@ -190,7 +190,7 @@ fn insert_clone(db: &Db, path: &PathBuf) -> bool {
 pub(crate) async fn main(config: Config) -> io::Result<()> {
     let addr = match &config.server {
         Server::Address(addr) => SocketAddr::from_str(addr)
-            .expect(&format!("Failed to parse {addr} as a socket address")),
+            .unwrap_or_else(|_| panic!("Failed to parse {addr} as a socket address")),
         Server::SshTunnel(conf) => ssh_tunnel::setup_tunnel(conf.clone()).await,
     };
 
