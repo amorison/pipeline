@@ -43,6 +43,9 @@ enum ConfKind {
     Client {
         /// Print configuration to this file, otherwise stdout
         path: Option<PathBuf>,
+        /// Configuration with SSH tunnel
+        #[arg(long)]
+        ssh_tunnel: bool,
     },
     /// Print out server configuration
     Server {
@@ -64,7 +67,14 @@ pub async fn main() -> io::Result<()> {
         Commands::Server { config } => server::main(conf_from_toml(config)?).await,
         Commands::PrintConfig { kind } => {
             let (content, path) = match kind {
-                ConfKind::Client { path } => (client::DEFAULT_TOML_CONF, path),
+                ConfKind::Client {
+                    path,
+                    ssh_tunnel: false,
+                } => (client::DEFAULT_TOML_CONF.as_ref(), path),
+                ConfKind::Client {
+                    path,
+                    ssh_tunnel: true,
+                } => (client::TUNNEL_TOML_CONF.as_ref(), path),
                 ConfKind::Server { path } => (server::DEFAULT_TOML_CONF, path),
             };
             match path {

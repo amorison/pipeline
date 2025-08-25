@@ -1,9 +1,13 @@
+mod ssh_tunnel;
+
 use std::{
     collections::HashSet,
     ffi::OsStr,
     io,
+    net::SocketAddr,
     path::{Path, PathBuf},
-    sync::Arc,
+    str::FromStr,
+    sync::{Arc, LazyLock},
     time::Duration,
 };
 
@@ -18,12 +22,50 @@ type Db = Arc<Mutex<HashSet<PathBuf>>>;
 
 #[derive(Deserialize, Debug)]
 pub(crate) struct Config {
-    server: String,
     copy_to_server: Vec<String>,
+    server: Server,
     watching: Watching,
 }
 
-pub(crate) static DEFAULT_TOML_CONF: &str = include_str!("default_client.toml");
+#[derive(Deserialize, Debug)]
+#[serde(untagged)]
+enum Server {
+    Address(String),
+    SshTunnel(SshTunnelConfig),
+}
+
+#[derive(Deserialize, Debug, Clone)]
+struct SshTunnelConfig {
+    ssh_host: String,
+    ssh_port: u16,
+    ssh_auth: SshAuth,
+    keepalive_every_secs: u64,
+    server_addr_from_host: String,
+    server_port_from_host: u16,
+    accepted_ssh_keys: Vec<String>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(tag = "strategy", rename_all = "kebab-case")]
+enum SshAuth {
+    None { user: String },
+    Password { user: String },
+    Key { user: String, public_key: PathBuf },
+}
+
+pub(crate) static DEFAULT_TOML_CONF: LazyLock<String> = LazyLock::new(|| {
+    format!(
+        include_str!("client/default.toml"),
+        server_conf = r#"server = "127.0.0.1:12345""#
+    )
+});
+
+pub(crate) static TUNNEL_TOML_CONF: LazyLock<String> = LazyLock::new(|| {
+    format!(
+        include_str!("client/default.toml"),
+        server_conf = include_str!("client/tunnel.toml").trim_end()
+    )
+});
 
 #[derive(Deserialize, Debug)]
 struct Watching {
@@ -146,7 +188,13 @@ fn insert_clone(db: &Db, path: &PathBuf) -> bool {
 }
 
 pub(crate) async fn main(config: Config) -> io::Result<()> {
-    let stream = TcpStream::connect(&config.server).await?;
+    let addr = match &config.server {
+        Server::Address(addr) => SocketAddr::from_str(addr)
+            .unwrap_or_else(|_| panic!("Failed to parse {addr} as a socket address")),
+        Server::SshTunnel(conf) => ssh_tunnel::setup_tunnel(conf.clone()).await,
+    };
+
+    let stream = TcpStream::connect(addr).await?;
 
     let (from_server, to_server) = crate::framed_json_channel::<Receipt, FileSpec>(stream);
 
@@ -167,5 +215,10 @@ mod test {
     #[test]
     fn read_default_config() {
         assert!(toml::from_slice::<Config>(DEFAULT_TOML_CONF.as_bytes()).is_ok());
+    }
+
+    #[test]
+    fn read_tunnel_config() {
+        assert!(toml::from_slice::<Config>(TUNNEL_TOML_CONF.as_bytes()).is_ok());
     }
 }
