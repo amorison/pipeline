@@ -1,14 +1,17 @@
 use std::{collections::HashSet, sync::Arc};
 
 use log::{info, warn};
+use russh::keys::agent::client::AgentClient;
 use russh::{
     client::{self as ssh_client, Handle},
     keys::{PublicKey, ssh_key::public::KeyData},
 };
-use std::net::SocketAddr;
-use tokio::net::TcpListener;
 
-use crate::client::SshTunnelConfig;
+use std::net::SocketAddr;
+use tokio::{fs, net::TcpListener};
+use zeroize::Zeroize;
+
+use crate::client::{SshAuth, SshTunnelConfig};
 
 struct Client {
     accepted_keys: HashSet<KeyData>,
@@ -54,10 +57,51 @@ async fn create_session(client: Client, conf: &SshTunnelConfig) -> Handle<Client
             .await
             .expect("Connection to SSH host failed");
 
-    ssh_session
-        .authenticate_none(&conf.ssh_user)
-        .await
-        .expect("Failed to authenticate");
+    match &conf.ssh_auth {
+        SshAuth::None { user } => {
+            ssh_session
+                .authenticate_none(user)
+                .await
+                .expect("Failed to authenticate");
+        }
+        SshAuth::Password { user } => {
+            let mut pwd = rpassword::prompt_password(format!("password for {user}:"))
+                .expect("Failed to read password");
+            ssh_session
+                .authenticate_password(user, &pwd)
+                .await
+                .expect("Failed to authenticate");
+            pwd.zeroize();
+        }
+        SshAuth::Key { user, public_key } => {
+            let public_key = fs::read_to_string(public_key)
+                .await
+                .expect(&format!("Failed to read public key {public_key:?}"));
+            let public_key = PublicKey::from_openssh(&public_key).expect("Failed to parse key");
+            #[cfg(unix)]
+            {
+                let mut agent = AgentClient::connect_env()
+                    .await
+                    .expect("Failed to connect to SSH agent");
+                ssh_session
+                    .authenticate_publickey_with(user, public_key, None, &mut agent)
+                    .await
+                    .expect("Failed to authenticate");
+            }
+            #[cfg(windows)]
+            {
+                let pipe = std::env::var("SSH_AUTH_SOCK")
+                    .unwrap_or_else(|_| r"\\.\pipe\openssh-ssh-agent".to_owned());
+                let mut agent = AgentClient::connect_named_pipe(&pipe)
+                    .await
+                    .expect("Failed to connect to SSH agent");
+                ssh_session
+                    .authenticate_publickey_with(user, public_key, None, &mut agent)
+                    .await
+                    .expect("Failed to authenticate");
+            }
+        }
+    }
 
     ssh_session
 }

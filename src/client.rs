@@ -38,10 +38,18 @@ enum Server {
 struct SshTunnelConfig {
     ssh_host: String,
     ssh_port: u16,
-    ssh_user: String,
+    ssh_auth: SshAuth,
     server_addr_from_host: String,
     server_port_from_host: u16,
     accepted_ssh_keys: Vec<String>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(tag = "strategy", rename_all = "kebab-case")]
+enum SshAuth {
+    None { user: String },
+    Password { user: String },
+    Key { user: String, public_key: PathBuf },
 }
 
 pub(crate) static DEFAULT_TOML_CONF: LazyLock<String> = LazyLock::new(|| {
