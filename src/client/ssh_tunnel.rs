@@ -1,6 +1,7 @@
 use std::{collections::HashSet, sync::Arc};
 
 use log::{info, warn};
+use russh::client::AuthResult;
 use russh::keys::agent::client::AgentClient;
 use russh::{
     client::{self as ssh_client, Handle},
@@ -57,33 +58,33 @@ async fn create_session(client: Client, conf: &SshTunnelConfig) -> Handle<Client
             .await
             .expect("Connection to SSH host failed");
 
-    match &conf.ssh_auth {
-        SshAuth::None { user } => {
-            ssh_session
-                .authenticate_none(user)
-                .await
-                .expect("Failed to authenticate");
-        }
+    let auth_result = match &conf.ssh_auth {
+        SshAuth::None { user } => ssh_session
+            .authenticate_none(user)
+            .await
+            .expect("Failed to authenticate"),
         SshAuth::Password { user } => {
             let mut pwd = rpassword::prompt_password(format!("password for {user}:"))
                 .expect("Failed to read password");
-            ssh_session
+            let auth_result = ssh_session
                 .authenticate_password(user, &pwd)
                 .await
                 .expect("Failed to authenticate");
             pwd.zeroize();
+            auth_result
         }
         SshAuth::Key { user, public_key } => {
             let public_key = fs::read_to_string(public_key)
                 .await
                 .expect(&format!("Failed to read public key {public_key:?}"));
             let public_key = PublicKey::from_openssh(&public_key).expect("Failed to parse key");
+            let auth_result: AuthResult;
             #[cfg(unix)]
             {
                 let mut agent = AgentClient::connect_env()
                     .await
                     .expect("Failed to connect to SSH agent");
-                ssh_session
+                auth_result = ssh_session
                     .authenticate_publickey_with(user, public_key, None, &mut agent)
                     .await
                     .expect("Failed to authenticate");
@@ -95,12 +96,17 @@ async fn create_session(client: Client, conf: &SshTunnelConfig) -> Handle<Client
                 let mut agent = AgentClient::connect_named_pipe(&pipe)
                     .await
                     .expect("Failed to connect to SSH agent");
-                ssh_session
+                auth_result = ssh_session
                     .authenticate_publickey_with(user, public_key, None, &mut agent)
                     .await
                     .expect("Failed to authenticate");
             }
+            auth_result
         }
+    };
+
+    if !auth_result.success() {
+        panic!("Denied authentication");
     }
 
     ssh_session
