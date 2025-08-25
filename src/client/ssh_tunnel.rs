@@ -2,7 +2,6 @@ use std::time::Duration;
 use std::{collections::HashSet, sync::Arc};
 
 use log::{info, warn};
-use russh::client::AuthResult;
 use russh::keys::agent::client::AgentClient;
 use russh::{
     client::{self as ssh_client, Handle},
@@ -82,30 +81,22 @@ async fn create_session(client: Client, conf: &SshTunnelConfig) -> Handle<Client
                 .await
                 .expect(&format!("Failed to read public key {public_key:?}"));
             let public_key = PublicKey::from_openssh(&public_key).expect("Failed to parse key");
-            let auth_result: AuthResult;
+            let agent;
             #[cfg(unix)]
             {
-                let mut agent = AgentClient::connect_env()
-                    .await
-                    .expect("Failed to connect to SSH agent");
-                auth_result = ssh_session
-                    .authenticate_publickey_with(user, public_key, None, &mut agent)
-                    .await
-                    .expect("Failed to authenticate");
+                agent = AgentClient::connect_env().await;
             }
             #[cfg(windows)]
             {
                 let pipe = std::env::var("SSH_AUTH_SOCK")
                     .unwrap_or_else(|_| r"\\.\pipe\openssh-ssh-agent".to_owned());
-                let mut agent = AgentClient::connect_named_pipe(&pipe)
-                    .await
-                    .expect("Failed to connect to SSH agent");
-                auth_result = ssh_session
-                    .authenticate_publickey_with(user, public_key, None, &mut agent)
-                    .await
-                    .expect("Failed to authenticate");
+                agent = AgentClient::connect_named_pipe(&pipe).await;
             }
-            auth_result
+            let mut agent = agent.expect("Failed to connect to SSH agent");
+            ssh_session
+                .authenticate_publickey_with(user, public_key, None, &mut agent)
+                .await
+                .expect("Failed to authenticate")
         }
     };
 
