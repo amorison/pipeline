@@ -1,3 +1,4 @@
+use std::time::Duration;
 use std::{collections::HashSet, sync::Arc};
 
 use log::{info, warn};
@@ -51,7 +52,10 @@ impl ssh_client::Handler for Client {
 }
 
 async fn create_session(client: Client, conf: &SshTunnelConfig) -> Handle<Client> {
-    let ssh_config = Arc::new(ssh_client::Config::default());
+    let ssh_config = Arc::new(ssh_client::Config {
+        keepalive_interval: Some(Duration::from_secs(conf.keepalive_every_secs)),
+        ..Default::default()
+    });
 
     let mut ssh_session =
         ssh_client::connect(ssh_config, (conf.ssh_host.as_str(), conf.ssh_port), client)

@@ -39,6 +39,7 @@ struct SshTunnelConfig {
     ssh_host: String,
     ssh_port: u16,
     ssh_auth: SshAuth,
+    keepalive_every_secs: u64,
     server_addr_from_host: String,
     server_port_from_host: u16,
     accepted_ssh_keys: Vec<String>,
