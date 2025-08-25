@@ -113,16 +113,16 @@ async fn create_session(client: Client, conf: &SshTunnelConfig) -> Handle<Client
 }
 
 pub(super) async fn setup_tunnel(conf: SshTunnelConfig) -> SocketAddr {
-    let ssh_client = Client::from_openssh_keys(&conf.accepted_ssh_keys);
-
-    let ssh_session = create_session(ssh_client, &conf).await;
-
     let local_listener = TcpListener::bind("127.0.0.1:0")
         .await
         .expect("Cannot bind local port");
     let local_addr = local_listener.local_addr().unwrap();
 
     tokio::spawn(async move {
+        let ssh_client = Client::from_openssh_keys(&conf.accepted_ssh_keys);
+
+        let ssh_session = create_session(ssh_client, &conf).await;
+
         let (mut local_socket, _) = local_listener
             .accept()
             .await
