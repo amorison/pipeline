@@ -2,7 +2,7 @@ use std::{collections::HashSet, sync::Arc};
 
 use log::{info, warn};
 use russh::{
-    client as ssh_client,
+    client::{self as ssh_client, Handle},
     keys::{PublicKey, ssh_key::public::KeyData},
 };
 use std::net::SocketAddr;
@@ -46,19 +46,26 @@ impl ssh_client::Handler for Client {
     }
 }
 
-pub(super) async fn setup_tunnel(conf: SshTunnelConfig) -> SocketAddr {
-    let ssh_client = Client::from_openssh_keys(&conf.accepted_ssh_keys);
+async fn create_session(client: Client, conf: &SshTunnelConfig) -> Handle<Client> {
     let ssh_config = Arc::new(ssh_client::Config::default());
 
     let mut ssh_session =
-        ssh_client::connect(ssh_config, (conf.ssh_host, conf.ssh_port), ssh_client)
+        ssh_client::connect(ssh_config, (conf.ssh_host.as_str(), conf.ssh_port), client)
             .await
             .expect("Connection to SSH host failed");
 
     ssh_session
-        .authenticate_none(conf.ssh_user)
+        .authenticate_none(&conf.ssh_user)
         .await
         .expect("Failed to authenticate");
+
+    ssh_session
+}
+
+pub(super) async fn setup_tunnel(conf: SshTunnelConfig) -> SocketAddr {
+    let ssh_client = Client::from_openssh_keys(&conf.accepted_ssh_keys);
+
+    let ssh_session = create_session(ssh_client, &conf).await;
 
     let local_listener = TcpListener::bind("127.0.0.1:0")
         .await
