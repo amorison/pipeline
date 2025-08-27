@@ -113,11 +113,12 @@ pub(super) async fn setup_tunnel(conf: SshTunnelConfig) -> SocketAddr {
         .expect("Cannot bind local port");
     let local_addr = local_listener.local_addr().unwrap();
 
+    let ssh_client = Client::from_openssh_keys(&conf.accepted_ssh_keys);
+    // Authenticate before returning from this function to avoid mangled output
+    // when interactive authentication is used.
+    let ssh_session = create_session(ssh_client, &conf).await;
+
     tokio::spawn(async move {
-        let ssh_client = Client::from_openssh_keys(&conf.accepted_ssh_keys);
-
-        let ssh_session = create_session(ssh_client, &conf).await;
-
         let (mut local_socket, _) = local_listener
             .accept()
             .await
