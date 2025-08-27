@@ -6,6 +6,7 @@ use std::{
     io,
     net::SocketAddr,
     path::{Path, PathBuf},
+    process::ExitStatus,
     str::FromStr,
     sync::{Arc, LazyLock},
     time::Duration,
@@ -22,9 +23,16 @@ type Db = Arc<Mutex<HashSet<PathBuf>>>;
 
 #[derive(Deserialize, Debug)]
 pub(crate) struct Config {
-    copy_to_server: Vec<String>,
+    copy_to_server: CopyToServer,
     server: Server,
     watching: Watching,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(untagged)]
+enum CopyToServer {
+    Copy { destination: PathBuf },
+    Command(Vec<String>),
 }
 
 #[derive(Deserialize, Debug)]
@@ -113,40 +121,73 @@ async fn listen_to_server(
     ))
 }
 
+enum CopyOutcome {
+    Ok,
+    ErrCommand(ExitStatus),
+    Err(io::Error),
+}
+
+impl From<io::Result<ExitStatus>> for CopyOutcome {
+    fn from(value: io::Result<ExitStatus>) -> Self {
+        match value {
+            Ok(status) if status.success() => Self::Ok,
+            Ok(status) => Self::ErrCommand(status),
+            Err(err) => Self::Err(err),
+        }
+    }
+}
+
+impl From<io::Result<()>> for CopyOutcome {
+    fn from(value: io::Result<()>) -> Self {
+        match value {
+            Ok(()) => Self::Ok,
+            Err(err) => Self::Err(err),
+        }
+    }
+}
+
 async fn send_file_to_server(
     to_server: Arc<Mutex<WriteFramedJson<FileSpec>>>,
     spec: FileSpec,
     conf: Arc<Config>,
 ) {
     info!("copying {spec:?} to server");
-    let mut copy = Command::new(&conf.copy_to_server[0])
-        .args(conf.copy_to_server[1..].iter().map(|a| {
-            replace_os_strings(
-                a,
-                [
-                    ("{server_filename}", spec.server_filename()),
-                    (
-                        "{client_path}",
-                        conf.watched_path(&spec.filename).as_os_str(),
-                    ),
-                ]
-                .into_iter(),
-            )
-        }))
-        .spawn()
-        .expect("could not spawn `copy_to_server` command");
-    match copy.wait().await {
-        Ok(status) if status.success() => to_server
+    let from = conf.watched_path(&spec.filename);
+    let outcome = match &conf.copy_to_server {
+        CopyToServer::Copy { destination } => {
+            let mut destination = destination.clone();
+            destination.push(spec.server_filename());
+            fs::copy(from, destination).await.map(|_| ()).into()
+        }
+        CopyToServer::Command(items) => Command::new(&items[0])
+            .args(items[1..].iter().map(|a| {
+                replace_os_strings(
+                    a,
+                    [
+                        ("{server_filename}", spec.server_filename()),
+                        ("{client_path}", from.as_os_str()),
+                    ]
+                    .into_iter(),
+                )
+            }))
+            .spawn()
+            .expect("could not spawn `copy_to_server` command")
+            .wait()
+            .await
+            .into(),
+    };
+    match outcome {
+        CopyOutcome::Ok => to_server
             .lock()
             .await
             .send(spec)
             .await
             .expect("couldn't send request to server"),
-        Ok(status) => warn!(
+        CopyOutcome::ErrCommand(status) => warn!(
             "copy of {spec:?} to server failed with status {:?}",
             status.code()
         ),
-        Err(err) => warn!("copy of {spec:?} to server failed '{err}'"),
+        CopyOutcome::Err(err) => warn!("copy of {spec:?} to server failed '{err}'"),
     }
 }
 
