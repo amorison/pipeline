@@ -62,11 +62,15 @@ async fn create_session(client: Client, conf: &SshTunnelConfig) -> Handle<Client
             .expect("Connection to SSH host failed");
 
     let auth_result = match &conf.ssh_auth {
-        SshAuth::None { user } => ssh_session
-            .authenticate_none(user)
-            .await
-            .expect("Failed to authenticate"),
+        SshAuth::None { user } => {
+            info!("authenticate as {user} with `none` auth");
+            ssh_session
+                .authenticate_none(user)
+                .await
+                .expect("Failed to authenticate")
+        }
         SshAuth::Password { user } => {
+            info!("authenticate as {user} with password");
             let mut pwd = rpassword::prompt_password(format!("password for {user}:"))
                 .expect("Failed to read password");
             let auth_result = ssh_session
@@ -77,6 +81,7 @@ async fn create_session(client: Client, conf: &SshTunnelConfig) -> Handle<Client
             auth_result
         }
         SshAuth::Key { user, public_key } => {
+            info!("authenticate as {user} with key");
             let public_key = fs::read_to_string(public_key)
                 .await
                 .unwrap_or_else(|_| panic!("Failed to read public key {public_key:?}"));
@@ -112,6 +117,11 @@ pub(super) async fn setup_tunnel(conf: SshTunnelConfig) -> SocketAddr {
         .await
         .expect("Cannot bind local port");
     let local_addr = local_listener.local_addr().unwrap();
+
+    info!(
+        "setting up ssh tunnel {local_addr} -> {}:{} -> {}:{}",
+        conf.ssh_host, conf.ssh_port, conf.server_addr_from_host, conf.server_port_from_host,
+    );
 
     let ssh_client = Client::from_openssh_keys(&conf.accepted_ssh_keys);
     // Authenticate before returning from this function to avoid mangled output

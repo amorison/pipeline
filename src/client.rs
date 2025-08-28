@@ -151,38 +151,44 @@ async fn send_file_to_server(
     spec: FileSpec,
     conf: Arc<Config>,
 ) {
-    info!("copying {spec:?} to server");
     let from = conf.watched_path(&spec.filename);
     let outcome = match &conf.copy_to_server {
         CopyToServer::Copy { destination } => {
+            info!("copying {spec:?} to server via `fs::copy`");
             let mut destination = destination.clone();
             destination.push(spec.server_filename());
             fs::copy(from, destination).await.map(|_| ()).into()
         }
-        CopyToServer::Command(items) => Command::new(&items[0])
-            .args(items[1..].iter().map(|a| {
-                replace_os_strings(
-                    a,
-                    [
-                        ("{server_filename}", spec.server_filename()),
-                        ("{client_path}", from.as_os_str()),
-                    ]
-                    .into_iter(),
-                )
-            }))
-            .spawn()
-            .expect("could not spawn `copy_to_server` command")
-            .wait()
-            .await
-            .into(),
+        CopyToServer::Command(items) => {
+            info!("copying {spec:?} to server with `{}`", &items[0]);
+            Command::new(&items[0])
+                .args(items[1..].iter().map(|a| {
+                    replace_os_strings(
+                        a,
+                        [
+                            ("{server_filename}", spec.server_filename()),
+                            ("{client_path}", from.as_os_str()),
+                        ]
+                        .into_iter(),
+                    )
+                }))
+                .spawn()
+                .expect("could not spawn `copy_to_server` command")
+                .wait()
+                .await
+                .into()
+        }
     };
     match outcome {
-        CopyOutcome::Ok => to_server
-            .lock()
-            .await
-            .send(spec)
-            .await
-            .expect("couldn't send request to server"),
+        CopyOutcome::Ok => {
+            info!("copy of {spec:?} completed successfully");
+            to_server
+                .lock()
+                .await
+                .send(spec)
+                .await
+                .expect("couldn't send request to server")
+        }
         CopyOutcome::ErrCommand(status) => warn!(
             "copy of {spec:?} to server failed with status {:?}",
             status.code()
@@ -196,6 +202,10 @@ async fn watch_dir(
     db: Db,
     conf: Arc<Config>,
 ) -> io::Result<()> {
+    info!(
+        "watching {:?} for {} files",
+        &conf.watching.directory, conf.watching.extension
+    );
     loop {
         let mut files = fs::read_dir(&conf.watching.directory).await?;
         while let Some(entry) = files.next_entry().await? {
@@ -236,6 +246,7 @@ pub(crate) async fn main(config: Config) -> io::Result<()> {
     };
 
     let stream = TcpStream::connect(addr).await?;
+    info!("connected to server at {addr}");
 
     let (from_server, to_server) = crate::framed_json_channel::<Receipt, FileSpec>(stream);
 

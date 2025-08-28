@@ -42,18 +42,23 @@ async fn processing_pipeline(
         match file_hash(&server_path) {
             Ok(received_hash) => {
                 if file.sha256_digest == received_hash {
+                    info!("{file:?} found");
                     Receipt::Received(file.clone())
                 } else {
+                    warn!("{file:?} does not have expected hash");
                     Receipt::DifferentHash {
                         spec: file.clone(),
                         received_hash,
                     }
                 }
             }
-            Err(err) => Receipt::Error {
-                spec: file.clone(),
-                error: err.to_string(),
-            },
+            Err(err) => {
+                info!("{file:?} not found {err:?}");
+                Receipt::Error {
+                    spec: file.clone(),
+                    error: err.to_string(),
+                }
+            }
         }
     };
     let continue_processing = receipt.continue_processing();
