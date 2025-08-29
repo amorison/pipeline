@@ -27,6 +27,8 @@ jobs:
 
   build:
     runs-on: ${{ matrix.platform.os }}
+    permissions:
+      contents: write
     needs: [tests]
     strategy:
       fail-fast: false
@@ -59,3 +61,7 @@ jobs:
         with:
           name: pipeline-${{ matrix.platform.target }}
           path: ${{ env.ASSET }}
+      - uses: softprops/action-gh-release@v2
+        if: github.ref_type == 'tag'
+        with:
+          files: ${{ env.ASSET }}
