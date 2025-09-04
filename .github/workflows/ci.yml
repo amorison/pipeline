@@ -54,11 +54,16 @@ jobs:
           asset_name=$binname-${{ matrix.platform.target }}
           if [ "${{ matrix.platform.os }}" = "windows-latest" ]; then
             target="target/${{ matrix.platform.target }}/release/$binname.exe"
+            archive_name=$asset_name.zip
+            7z a $archive_name $target
           else
             target="target/${{ matrix.platform.target }}/release/$binname"
+            archive_name=$asset_name.tar.gz
+            tar -czf $archive_name $target
           fi
           echo "ASSET=$target" >> $GITHUB_ENV
           echo "ASSET_NAME=$asset_name" >> $GITHUB_ENV
+          echo "RELEASE_ASSET=$archive_name" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ASSET_NAME }}
@@ -66,4 +71,4 @@ jobs:
       - uses: softprops/action-gh-release@v2
         if: github.ref_type == 'tag'
         with:
-          files: ${{ env.ASSET }}
+          files: ${{ env.RELEASE_ASSET }}
