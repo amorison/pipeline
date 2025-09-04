@@ -51,15 +51,17 @@ jobs:
         run: |
           cargo build --release --target ${{ matrix.platform.target }}
           binname="pipeline"
+          asset_name=$binname-${{ matrix.platform.target }}
           if [ "${{ matrix.platform.os }}" = "windows-latest" ]; then
             target="target/${{ matrix.platform.target }}/release/$binname.exe"
           else
             target="target/${{ matrix.platform.target }}/release/$binname"
           fi
           echo "ASSET=$target" >> $GITHUB_ENV
+          echo "ASSET_NAME=$asset_name" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v4
         with:
-          name: pipeline-${{ matrix.platform.target }}
+          name: ${{ env.ASSET_NAME }}
           path: ${{ env.ASSET }}
       - uses: softprops/action-gh-release@v2
         if: github.ref_type == 'tag'
