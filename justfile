@@ -24,3 +24,12 @@ setup:
 # create random file on client
 create-rand-file:
     openssl rand -out {{clientdir}}/foo-$(openssl rand -hex 8).mrc 128
+
+# prepare a new release
+release version:
+    @if [ -n "$(git status --porcelain || echo "dirty")" ]; then echo "repo is dirty!"; exit 1; fi
+    sed -i 's/^version = ".*"$/version = "{{ version }}"/g' Cargo.toml
+    git add Cargo.toml
+    git commit -m "release {{ version }}"
+    git tag -m "Release {{ version }}" -a -e "v{{ version }}"
+    @echo "check last commit and amend as necessary, then git push --follow-tags"
