@@ -49,7 +49,7 @@ pub(super) async fn watch_dir(
             {
                 let client_path = entry.path();
                 if let Ok(true) = is_new_watched_path(&client_path, &db, &conf)
-                    && let Ok(spec) = FileSpec::new(client_path)
+                    && let Ok(spec) = FileSpec::new(&client_path)
                 {
                     info!("found file to process {spec:?}");
                     to_server.lock().await.send(spec).await?;

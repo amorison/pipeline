@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 use std::{
     ffi::{OsStr, OsString},
     io,
-    path::{Path, PathBuf},
+    path::Path,
 };
 use tokio::net::{
     TcpStream,
@@ -46,8 +46,8 @@ struct FileSpec {
 }
 
 impl FileSpec {
-    fn new(client_path: PathBuf) -> io::Result<Self> {
-        let sha256_digest = file_hash(&client_path)?;
+    fn new(client_path: &Path) -> io::Result<Self> {
+        let sha256_digest = file_hash(client_path)?;
         let filename = client_path
             .file_name()
             .unwrap()
