@@ -186,7 +186,7 @@ async fn send_file_to_server(
                 .await
                 .send(spec)
                 .await
-                .expect("couldn't send request to server")
+                .expect("couldn't send request to server");
         }
         CopyOutcome::ErrCommand(status) => warn!(
             "copy of {spec:?} to server failed with status {:?}",
