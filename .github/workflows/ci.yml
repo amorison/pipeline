@@ -52,18 +52,19 @@ jobs:
           cargo build --release --target ${{ matrix.platform.target }}
           binname="pipeline"
           asset_name=$binname-${{ matrix.platform.target }}
+          target_folder="target/${{ matrix.platform.target }}/release"
           if [ "${{ matrix.platform.os }}" = "windows-latest" ]; then
-            target="target/${{ matrix.platform.target }}/release/$binname.exe"
+            target_name=$binname.exe
             archive_name=$asset_name.zip
-            7z a $archive_name $target
+            (cd $target_folder && 7z a $archive_name $target_name)
           else
-            target="target/${{ matrix.platform.target }}/release/$binname"
+            target_name=$binname
             archive_name=$asset_name.tar.gz
-            tar -czf $archive_name $target
+            (cd $target_folder && tar -czf $archive_name $target_name)
           fi
-          echo "ASSET=$target" >> $GITHUB_ENV
+          echo "ASSET=$target_folder/$target_name" >> $GITHUB_ENV
           echo "ASSET_NAME=$asset_name" >> $GITHUB_ENV
-          echo "RELEASE_ASSET=$archive_name" >> $GITHUB_ENV
+          echo "RELEASE_ASSET=$target_folder/$archive_name" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ASSET_NAME }}
