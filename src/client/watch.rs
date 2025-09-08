@@ -1,7 +1,7 @@
 use std::{ffi::OsStr, io, path::Path, sync::Arc, time::Duration};
 
 use futures_util::SinkExt;
-use log::info;
+use log::{debug, info};
 use tokio::{fs, sync::Mutex};
 
 use crate::{
@@ -42,8 +42,10 @@ pub(super) async fn watch_dir(
         &conf.watching.directory, conf.watching.extension
     );
     loop {
+        debug!("going through files in {:?}", &conf.watching.directory);
         let mut files = fs::read_dir(&conf.watching.directory).await?;
         while let Some(entry) = files.next_entry().await? {
+            debug!("examining {entry:?}");
             if let Ok(ft) = entry.file_type().await
                 && ft.is_file()
             {
