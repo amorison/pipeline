@@ -35,3 +35,11 @@ configuration file that uses SSH tunnelling to connect to the server.
 Both the client and server processes are designed as long running processes
 with low CPU- and memory-footprints. They are intended to run as daemons to
 process a large number of files over hours, days, or longer durations.
+
+You can set the `PIPELINE_LOG` environment variable to change the verbosity of
+logs. Accepted values in order of decreasing verbosity are:
+
+- `debug`: the most verbose level;
+- `info`: the default level;
+- `warn`: only show warnings;
+- `off`: disable logging.
