@@ -53,7 +53,7 @@ struct SshTunnelConfig {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-#[serde(tag = "strategy", rename_all = "kebab-case")]
+#[serde(tag = "method", rename_all = "kebab-case")]
 enum SshAuth {
     None { user: String },
     Password { user: String },

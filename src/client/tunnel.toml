@@ -6,10 +6,10 @@ ssh_port = 22
 # authentication on ssh host
 # Other strategies are available:
 # - ask password to user with
-#   { strategy = "password", user = "user" }
+#   { method = "password", user = "user" }
 # - use a key via the openssh agent at `SSH_AUTH_SOCK` with
-#   { strategy = "key", user = "user", public_key = "path/to/key.pub" }
-ssh_auth = { strategy = "none", user = "user" }
+#   { method = "key", user = "user", public_key = "path/to/key.pub" }
+ssh_auth = { method = "none", user = "user" }
 # send a keepalive if no communication occurs for this duration in seconds
 keepalive_every_secs = 60
 # address of pipeline server as seen from ssh host
