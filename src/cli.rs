@@ -60,11 +60,20 @@ fn conf_from_toml<T: for<'a> Deserialize<'a>>(path: &Path) -> io::Result<T> {
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))
 }
 
+fn read_conf_and_chdir<T: for<'a> Deserialize<'a>>(path: &Path) -> io::Result<T> {
+    let config = conf_from_toml(path)?;
+    let work_dir = path
+        .parent()
+        .expect("config file should have a parent folder");
+    std::env::set_current_dir(work_dir)?;
+    Ok(config)
+}
+
 pub async fn main() -> io::Result<()> {
     let cli = Cli::parse();
     match &cli.command {
-        Commands::Client { config } => client::main(conf_from_toml(config)?).await,
-        Commands::Server { config } => server::main(conf_from_toml(config)?).await,
+        Commands::Client { config } => client::main(read_conf_and_chdir(config)?).await,
+        Commands::Server { config } => server::main(read_conf_and_chdir(config)?).await,
         Commands::PrintConfig { kind } => {
             let (content, path) = match kind {
                 ConfKind::Client {

@@ -2,14 +2,12 @@ serverdir := "dummy-folder/server"
 clientdir := "dummy-folder/client"
 
 # start server
-[working-directory: 'dummy-folder']
 start-server:
-    cargo run -- server server.toml
+    cargo run -- server dummy-folder/server.toml
 
 # start client
-[working-directory: 'dummy-folder']
 start-client:
-    cargo run -- client client.toml
+    cargo run -- client dummy-folder/client.toml
 
 # setup tests
 setup:
