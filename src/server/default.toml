@@ -20,3 +20,6 @@ processing = [
     "{server_path}",
     "./server/{client_file_stem}-{hash}.tiff",
 ]
+
+# Period in seconds at which failed tasks should be retried.
+retry_tasks_every_secs = 60

@@ -23,6 +23,15 @@ pub(crate) struct FileInPipeline {
     status: ProcessStatus,
 }
 
+impl From<FileInPipeline> for FileSpec {
+    fn from(value: FileInPipeline) -> Self {
+        Self {
+            filename: value.file_name,
+            sha256_digest: value.hash,
+        }
+    }
+}
+
 impl AsRef<str> for ProcessStatus {
     fn as_ref(&self) -> &str {
         match self {
@@ -72,6 +81,16 @@ impl Database {
 
     pub(crate) async fn content(&self) -> Result<Vec<FileInPipeline>> {
         sqlx::query_as("SELECT * FROM files_in_pipeline;")
+            .fetch_all(&self.0)
+            .await
+    }
+
+    pub(super) async fn tasks_with_status(
+        &self,
+        status: ProcessStatus,
+    ) -> Result<Vec<FileInPipeline>> {
+        sqlx::query_as("SELECT * FROM files_in_pipeline WHERE status = $1;")
+            .bind(status.as_ref())
             .fetch_all(&self.0)
             .await
     }

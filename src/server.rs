@@ -1,16 +1,17 @@
 pub(crate) mod database;
 
-use std::{io, net::SocketAddr, path::PathBuf, sync::Arc};
+use std::{io, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 
 use crate::{FileSpec, Receipt, WriteFramedJson, file_hash, replace_os_strings};
 use database::{Database, ProcessStatus};
 use futures_util::{SinkExt, TryStreamExt};
-use log::{info, warn};
+use log::{debug, info, warn};
 use serde::Deserialize;
 use tokio::{
     net::{TcpListener, TcpStream},
     process::Command,
     sync::Mutex,
+    time::MissedTickBehavior,
 };
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
@@ -18,6 +19,7 @@ pub(crate) struct Config {
     address: String,
     incoming_directory: PathBuf,
     processing: Vec<String>,
+    retry_tasks_every_secs: u64,
 }
 
 pub(crate) static DEFAULT_TOML_CONF: &str = include_str!("server/default.toml");
@@ -67,11 +69,19 @@ async fn processing_pipeline(
         return;
     }
 
+    db.insert_new_processing(&file)
+        .await
+        .expect("failed to insert in db");
+
     process_file(file, config, db).await;
 }
 
 async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
     info!("starting processing for {file:?}");
+
+    db.update_status(&file.sha256_digest, ProcessStatus::Processing)
+        .await
+        .expect("failed to insert in db");
 
     let mut server_path = config.incoming_directory.clone();
     server_path.push(file.server_filename());
@@ -90,10 +100,6 @@ async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
         }))
         .spawn()
         .expect("could not spawn `copy_to_server` command");
-
-    db.insert_new_processing(&file)
-        .await
-        .expect("failed to insert in db");
 
     let status = match processing.wait().await {
         Ok(status) if status.success() => {
@@ -154,6 +160,23 @@ async fn listen_to_clients(config: Arc<Config>, db: Database) -> io::Result<()> 
     }
 }
 
+async fn restart_failed_tasks(config: Arc<Config>, db: Database) -> io::Result<()> {
+    let mut interval = tokio::time::interval(Duration::from_secs(config.retry_tasks_every_secs));
+    interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+    loop {
+        interval.tick().await;
+        debug!("looking for failed tasks to restart");
+        let failed = db
+            .tasks_with_status(ProcessStatus::Failed)
+            .await
+            .expect("failed to read database for failed tasks");
+        for spec in failed.into_iter().map(FileSpec::from) {
+            info!("restarting previously failed {spec:?}");
+            tokio::spawn(process_file(spec, config.clone(), db.clone()));
+        }
+    }
+}
+
 pub(crate) async fn main(config: Config) -> io::Result<()> {
     let config = Arc::new(config);
 
@@ -161,7 +184,10 @@ pub(crate) async fn main(config: Config) -> io::Result<()> {
         .await
         .expect("failed to create database");
 
-    listen_to_clients(config, db).await
+    tokio::select!(
+        listen = listen_to_clients(config.clone(), db.clone()) => listen,
+        retry = restart_failed_tasks(config, db) => retry,
+    )
 }
 
 #[cfg(test)]
