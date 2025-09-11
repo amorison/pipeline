@@ -67,7 +67,14 @@ async fn processing_pipeline(
         return;
     }
 
+    process_file(file, config, db).await;
+}
+
+async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
     info!("starting processing for {file:?}");
+
+    let mut server_path = config.incoming_directory.clone();
+    server_path.push(file.server_filename());
 
     let mut processing = Command::new(&config.processing[0])
         .args(config.processing[1..].iter().map(|a| {
