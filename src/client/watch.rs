@@ -41,7 +41,10 @@ pub(super) async fn watch_dir(
         "watching {:?} for {} files",
         &conf.watching.directory, conf.watching.extension
     );
+    let mut interval = tokio::time::interval(Duration::from_secs(conf.watching.refresh_every_secs));
+    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     loop {
+        interval.tick().await;
         debug!("going through files in {:?}", &conf.watching.directory);
         let mut files = fs::read_dir(&conf.watching.directory).await?;
         while let Some(entry) = files.next_entry().await? {
@@ -58,6 +61,5 @@ pub(super) async fn watch_dir(
                 }
             }
         }
-        tokio::time::sleep(Duration::from_secs(conf.watching.refresh_every_secs)).await;
     }
 }
