@@ -136,13 +136,7 @@ async fn handle_client(
     Ok(())
 }
 
-pub(crate) async fn main(config: Config) -> io::Result<()> {
-    let config = Arc::new(config);
-
-    let db = Database::create_if_missing()
-        .await
-        .expect("failed to create database");
-
+async fn listen_to_clients(config: Arc<Config>, db: Database) -> io::Result<()> {
     let listener = TcpListener::bind(&config.address).await?;
 
     info!("listening on {:?}", listener.local_addr());
@@ -151,6 +145,16 @@ pub(crate) async fn main(config: Config) -> io::Result<()> {
         let (socket, addr) = listener.accept().await?;
         tokio::spawn(handle_client(socket, addr, config.clone(), db.clone()));
     }
+}
+
+pub(crate) async fn main(config: Config) -> io::Result<()> {
+    let config = Arc::new(config);
+
+    let db = Database::create_if_missing()
+        .await
+        .expect("failed to create database");
+
+    listen_to_clients(config, db).await
 }
 
 #[cfg(test)]
