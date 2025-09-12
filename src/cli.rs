@@ -35,6 +35,14 @@ enum Commands {
     },
     /// Print server database content
     Db,
+    /// Prune processed files on server
+    Prune {
+        /// Configuration file
+        config: PathBuf,
+        /// Actually remove processed files
+        #[arg(long, short)]
+        force: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -93,6 +101,9 @@ pub async fn main() -> io::Result<()> {
             Ok(())
         }
         Commands::Db => query_db::main().await,
+        Commands::Prune { config, force } => {
+            server::prune::main(read_conf_and_chdir(config)?, *force).await
+        }
     }
 }
 

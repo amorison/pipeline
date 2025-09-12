@@ -122,4 +122,12 @@ impl Database {
         .await?;
         Ok(())
     }
+
+    pub(super) async fn remove(&self, hash: &str) -> Result<()> {
+        sqlx::query("DELETE FROM files_in_pipeline WHERE hash = $1;")
+            .bind(hash)
+            .execute(&self.0)
+            .await?;
+        Ok(())
+    }
 }
