@@ -22,6 +22,14 @@ pub(crate) struct Config {
     retry_tasks_every_secs: u64,
 }
 
+impl Config {
+    pub(crate) fn path_of(&self, file: &FileSpec) -> PathBuf {
+        let mut path = self.incoming_directory.clone();
+        path.push(file.server_filename());
+        path
+    }
+}
+
 pub(crate) static DEFAULT_TOML_CONF: &str = include_str!("server/default.toml");
 
 async fn processing_pipeline(
@@ -30,8 +38,7 @@ async fn processing_pipeline(
     config: Arc<Config>,
     db: Database,
 ) {
-    let mut server_path = config.incoming_directory.clone();
-    server_path.push(file.server_filename());
+    let server_path = config.path_of(&file);
 
     let in_db = db
         .contains(&file.sha256_digest)
@@ -83,8 +90,7 @@ async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
         .await
         .expect("failed to insert in db");
 
-    let mut server_path = config.incoming_directory.clone();
-    server_path.push(file.server_filename());
+    let server_path = config.path_of(&file);
 
     let mut processing = Command::new(&config.processing[0])
         .args(config.processing[1..].iter().map(|a| {
