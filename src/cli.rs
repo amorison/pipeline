@@ -69,7 +69,8 @@ fn conf_from_toml<T: for<'a> Deserialize<'a>>(path: &Path) -> io::Result<T> {
 }
 
 fn read_conf_and_chdir<T: for<'a> Deserialize<'a>>(path: &Path) -> io::Result<T> {
-    let config = conf_from_toml(path)?;
+    let path = path.canonicalize()?;
+    let config = conf_from_toml(&path)?;
     let work_dir = path
         .parent()
         .expect("config file should have a parent folder");
