@@ -13,6 +13,6 @@ pub(crate) async fn main() -> io::Result<()> {
             .remove_left()
             .remove_right(),
     );
-    println!("{}", table);
+    println!("{table}");
     Ok(())
 }
