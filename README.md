@@ -15,20 +15,20 @@ Communication between the server and the clients occurs over TCP.
 You can create a configuration file and start the server with:
 
 ```shell
-pipeline print-config server server.toml
+pipeline server config server.toml
 # edit `server.toml` as required
-pipeline server server.toml
+pipeline server start server.toml
 ```
 
 Similarly on the clients:
 
 ```shell
-pipeline print-config client [--ssh-tunnel] client.toml
+pipeline client config [--ssh-tunnel] client.toml
 # edit `client.toml` as required
-pipeline client client.toml
+pipeline client start client.toml
 ```
 
-The configuration files produced by the `print-config` command contain comments
+The default configuration files generated as above contain comments
 explaining each configuration option. The `--ssh-tunnel` option produces a
 configuration file that uses SSH tunnelling to connect to the server.
 

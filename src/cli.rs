@@ -18,23 +18,49 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Start pipeline client
+    /// Start and manage pipeline client
     Client {
-        /// Configuration file
-        config: PathBuf,
-    },
-    /// Start pipeline server
-    Server {
-        /// Configuration file
-        config: PathBuf,
-    },
-    /// Print out configuration example
-    PrintConfig {
         #[command(subcommand)]
-        kind: ConfKind,
+        cmd: ClientCmd,
     },
-    /// Print server database content
-    Db,
+    /// Start and manage pipeline server
+    Server {
+        #[command(subcommand)]
+        cmd: ServerCmd,
+    },
+}
+
+#[derive(Subcommand)]
+enum ClientCmd {
+    /// Start pipeline client
+    Start {
+        /// Configuration file
+        config: PathBuf,
+    },
+    /// Print configuration example
+    Config {
+        /// Print configuration to this file, otherwise stdout
+        path: Option<PathBuf>,
+        /// Generate configuration with SSH tunnel
+        #[arg(long)]
+        ssh_tunnel: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum ServerCmd {
+    /// Start pipeline server
+    Start {
+        /// Configuration file
+        config: PathBuf,
+    },
+    /// Print configuration example
+    Config {
+        /// Print configuration to this file, otherwise stdout
+        path: Option<PathBuf>,
+    },
+    /// List files in pipeline and their status
+    List,
     /// Prune processed files on server
     Prune {
         /// Configuration file
@@ -42,23 +68,6 @@ enum Commands {
         /// Actually remove processed files
         #[arg(long, short)]
         force: bool,
-    },
-}
-
-#[derive(Subcommand)]
-enum ConfKind {
-    /// Print out client configuration
-    Client {
-        /// Print configuration to this file, otherwise stdout
-        path: Option<PathBuf>,
-        /// Configuration with SSH tunnel
-        #[arg(long)]
-        ssh_tunnel: bool,
-    },
-    /// Print out server configuration
-    Server {
-        /// Print configuration to this file, otherwise stdout
-        path: Option<PathBuf>,
     },
 }
 
@@ -78,22 +87,14 @@ fn read_conf_and_chdir<T: for<'a> Deserialize<'a>>(path: &Path) -> io::Result<T>
     Ok(config)
 }
 
-pub async fn main() -> io::Result<()> {
-    let cli = Cli::parse();
-    match &cli.command {
-        Commands::Client { config } => client::main(read_conf_and_chdir(config)?).await,
-        Commands::Server { config } => server::main(read_conf_and_chdir(config)?).await,
-        Commands::PrintConfig { kind } => {
-            let (content, path) = match kind {
-                ConfKind::Client {
-                    path,
-                    ssh_tunnel: false,
-                } => (client::DEFAULT_TOML_CONF.as_ref(), path),
-                ConfKind::Client {
-                    path,
-                    ssh_tunnel: true,
-                } => (client::TUNNEL_TOML_CONF.as_ref(), path),
-                ConfKind::Server { path } => (server::DEFAULT_TOML_CONF, path),
+async fn client_cli(cmd: ClientCmd) -> io::Result<()> {
+    match cmd {
+        ClientCmd::Start { config } => client::main(read_conf_and_chdir(&config)?).await,
+        ClientCmd::Config { path, ssh_tunnel } => {
+            let content: &str = if ssh_tunnel {
+                client::TUNNEL_TOML_CONF.as_ref()
+            } else {
+                client::DEFAULT_TOML_CONF.as_ref()
             };
             match path {
                 Some(path) => fs::write(path, content)?,
@@ -101,10 +102,32 @@ pub async fn main() -> io::Result<()> {
             }
             Ok(())
         }
-        Commands::Db => query_db::main().await,
-        Commands::Prune { config, force } => {
-            server::prune::main(read_conf_and_chdir(config)?, *force).await
+    }
+}
+
+async fn server_cli(cmd: ServerCmd) -> io::Result<()> {
+    match cmd {
+        ServerCmd::Start { config } => server::main(read_conf_and_chdir(&config)?).await,
+        ServerCmd::Config { path } => {
+            let content = server::DEFAULT_TOML_CONF;
+            match path {
+                Some(path) => fs::write(path, content)?,
+                None => print!("{content}"),
+            }
+            Ok(())
         }
+        ServerCmd::List => query_db::main().await,
+        ServerCmd::Prune { config, force } => {
+            server::prune::main(read_conf_and_chdir(&config)?, force).await
+        }
+    }
+}
+
+pub async fn main() -> io::Result<()> {
+    let cli = Cli::parse();
+    match cli.command {
+        Commands::Client { cmd } => client_cli(cmd).await,
+        Commands::Server { cmd } => server_cli(cmd).await,
     }
 }
 

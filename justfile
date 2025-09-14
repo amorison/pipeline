@@ -3,11 +3,11 @@ clientdir := "dummy-folder/client"
 
 # start server
 start-server:
-    cargo run -- server dummy-folder/server.toml
+    cargo run -- server start dummy-folder/server.toml
 
 # start client
 start-client:
-    cargo run -- client dummy-folder/client.toml
+    cargo run -- client start dummy-folder/client.toml
 
 # setup tests
 setup:
@@ -16,8 +16,8 @@ setup:
     echo '*' > dummy-folder/.gitignore
     just create-rand-file
     just create-rand-file
-    cargo run -- print-config client dummy-folder/client.toml
-    cargo run -- print-config server dummy-folder/server.toml
+    cargo run -- client config dummy-folder/client.toml
+    cargo run -- server config dummy-folder/server.toml
 
 # create random file on client
 create-rand-file:
