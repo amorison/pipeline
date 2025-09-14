@@ -8,14 +8,14 @@ use tabled::Tabled;
 use crate::FileSpec;
 
 #[derive(Copy, Clone, Type, Debug)]
-pub(crate) enum ProcessStatus {
+pub(super) enum ProcessStatus {
     Processing,
     Failed,
     Done,
 }
 
 #[derive(FromRow, Tabled)]
-pub(crate) struct FileInPipeline {
+pub(super) struct FileInPipeline {
     hash: String,
     date_utc: String,
     file_name: String,
@@ -43,10 +43,10 @@ impl AsRef<str> for ProcessStatus {
 }
 
 #[derive(Clone)]
-pub(crate) struct Database(Pool<Sqlite>);
+pub(super) struct Database(Pool<Sqlite>);
 
 impl Database {
-    pub(crate) async fn read_only() -> Result<Self> {
+    pub(super) async fn read_only() -> Result<Self> {
         let pool = SqlitePool::connect_with(
             SqliteConnectOptions::new()
                 .filename(".pipeline_server.db")
@@ -79,7 +79,7 @@ impl Database {
         Ok(Self(pool))
     }
 
-    pub(crate) async fn content(&self) -> Result<Vec<FileInPipeline>> {
+    pub(super) async fn content(&self) -> Result<Vec<FileInPipeline>> {
         sqlx::query_as("SELECT * FROM files_in_pipeline;")
             .fetch_all(&self.0)
             .await
