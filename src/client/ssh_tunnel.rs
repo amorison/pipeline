@@ -135,9 +135,9 @@ pub(super) async fn setup_tunnel(conf: SshTunnelConfig) -> SocketAddr {
         let ssh_channel = ssh_session
             .channel_open_direct_tcpip(
                 conf.server_addr_from_host,
-                conf.server_port_from_host as u32,
+                u32::from(conf.server_port_from_host),
                 local_addr.ip().to_string(),
-                local_addr.port() as u32,
+                u32::from(local_addr.port()),
             )
             .await
             .expect("Cannot open SSH forwarding channel");
