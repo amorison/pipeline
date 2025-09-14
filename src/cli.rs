@@ -6,7 +6,7 @@ use std::{
 use clap::{Parser, Subcommand};
 use serde::Deserialize;
 
-use crate::{client, query_db, server};
+use crate::{client, server};
 
 /// Processing pipeline utility
 #[derive(Parser)]
@@ -116,7 +116,7 @@ async fn server_cli(cmd: ServerCmd) -> io::Result<()> {
             }
             Ok(())
         }
-        ServerCmd::List => query_db::main().await,
+        ServerCmd::List => server::list::main().await,
         ServerCmd::Prune { config, force } => {
             server::prune::main(read_conf_and_chdir(&config)?, force).await
         }

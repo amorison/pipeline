@@ -1,4 +1,5 @@
 pub(crate) mod database;
+pub(crate) mod list;
 pub(crate) mod prune;
 
 use std::{io, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
