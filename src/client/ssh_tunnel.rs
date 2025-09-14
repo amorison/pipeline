@@ -105,9 +105,7 @@ async fn create_session(client: Client, conf: &SshTunnelConfig) -> Handle<Client
         }
     };
 
-    if !auth_result.success() {
-        panic!("Denied authentication");
-    }
+    assert!(auth_result.success(), "Denied authentication");
 
     ssh_session
 }
