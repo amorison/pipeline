@@ -101,6 +101,10 @@ async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
                 [
                     ("{hash}", file.sha256_digest.as_ref()),
                     ("{server_path}", server_path.as_os_str()),
+                    (
+                        "{client_relative_directory}",
+                        file.relative_directory().as_os_str(),
+                    ),
                     ("{client_file_stem}", file.file_stem()),
                 ]
                 .into_iter(),
