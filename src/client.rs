@@ -5,7 +5,7 @@ use std::{
     collections::HashSet,
     io,
     net::SocketAddr,
-    path::{Path, PathBuf},
+    path::PathBuf,
     process::ExitStatus,
     str::FromStr,
     sync::{Arc, LazyLock},
@@ -83,8 +83,8 @@ struct Watching {
 }
 
 impl Config {
-    fn watched_path(&self, filename: impl AsRef<Path>) -> PathBuf {
-        self.watching.directory.join(filename)
+    fn watched_path(&self, spec: &FileSpec) -> PathBuf {
+        self.watching.directory.join(spec.relative_path())
     }
 }
 
@@ -98,11 +98,11 @@ async fn listen_to_server(
         match msg {
             Receipt::Received(spec) => {
                 info!("server confirmed reception of {spec:?}");
-                let path = &conf.watched_path(spec.filename);
-                if let Err(err) = fs::remove_file(path).await {
+                let path = conf.watched_path(&spec);
+                if let Err(err) = fs::remove_file(&path).await {
                     warn!("error when removing {path:?}: {err}");
                 }
-                db.try_lock().unwrap().remove(path);
+                db.try_lock().unwrap().remove(&spec.relative_path());
             }
             Receipt::DifferentHash { spec, .. } => {
                 info!("server does not have expected hash for {spec:?}, resending");
@@ -150,7 +150,7 @@ async fn send_file_to_server(
     spec: FileSpec,
     conf: Arc<Config>,
 ) {
-    let from = conf.watched_path(&spec.filename);
+    let from = conf.watched_path(&spec);
     let outcome = match &conf.copy_to_server {
         CopyToServer::Copy { destination } => {
             info!("copying {spec:?} to server via `fs::copy`");

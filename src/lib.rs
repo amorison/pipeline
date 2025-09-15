@@ -8,7 +8,7 @@ use sha2::{Digest, Sha256};
 use std::{
     ffi::{OsStr, OsString},
     io,
-    path::Path,
+    path::{Path, PathBuf},
 };
 use tokio::net::{
     TcpStream,
@@ -40,12 +40,13 @@ where
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct FileSpec {
+    path: String,
     filename: String,
     sha256_digest: String,
 }
 
 impl FileSpec {
-    fn new(client_path: &Path) -> io::Result<Self> {
+    fn new(root: &Path, client_path: &Path) -> io::Result<Self> {
         let sha256_digest = file_hash(client_path)?;
         let filename = client_path
             .file_name()
@@ -53,7 +54,18 @@ impl FileSpec {
             .to_str()
             .unwrap()
             .to_owned();
+        let segments: Vec<String> = client_path
+            .parent()
+            .unwrap()
+            .strip_prefix(root)
+            .expect("root should be parent of path")
+            .iter()
+            .map(|segment| segment.to_str().unwrap())
+            .map(ToOwned::to_owned)
+            .collect();
+        let path = segments.join("/");
         Ok(FileSpec {
+            path,
             filename,
             sha256_digest,
         })
@@ -61,6 +73,14 @@ impl FileSpec {
 
     fn server_filename(&self) -> &OsStr {
         self.sha256_digest.as_ref()
+    }
+
+    fn relative_directory(&self) -> &Path {
+        self.path.as_ref()
+    }
+
+    fn relative_path(&self) -> PathBuf {
+        self.relative_directory().join(&self.filename)
     }
 
     fn file_stem(&self) -> &OsStr {
