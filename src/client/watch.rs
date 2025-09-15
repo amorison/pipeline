@@ -32,6 +32,21 @@ fn is_new_watched_path(path: &Path, db: &Db, conf: &Config) -> io::Result<bool> 
     }
 }
 
+async fn examine_file(
+    path: &Path,
+    to_server: Arc<Mutex<WriteFramedJson<FileSpec>>>,
+    db: &Db,
+    conf: &Config,
+) -> io::Result<()> {
+    if let Ok(true) = is_new_watched_path(&path, &db, &conf)
+        && let Ok(spec) = FileSpec::new(path)
+    {
+        info!("found file to process {spec:?}");
+        to_server.lock().await.send(spec).await?;
+    }
+    Ok(())
+}
+
 pub(super) async fn watch_dir(
     to_server: Arc<Mutex<WriteFramedJson<FileSpec>>>,
     db: Db,
@@ -53,12 +68,7 @@ pub(super) async fn watch_dir(
                 && ft.is_file()
             {
                 let client_path = entry.path();
-                if let Ok(true) = is_new_watched_path(&client_path, &db, &conf)
-                    && let Ok(spec) = FileSpec::new(&client_path)
-                {
-                    info!("found file to process {spec:?}");
-                    to_server.lock().await.send(spec).await?;
-                }
+                examine_file(&client_path, to_server.clone(), &db, &conf).await?;
             }
         }
     }
