@@ -38,6 +38,7 @@ async fn examine_file(
     db: &Db,
     conf: &Config,
 ) -> io::Result<()> {
+    debug!("examining {path:?}");
     if let Ok(true) = is_new_watched_path(&path, &db, &conf)
         && let Ok(spec) = FileSpec::new(path)
     {
@@ -63,7 +64,6 @@ pub(super) async fn watch_dir(
         debug!("going through files in {:?}", &conf.watching.directory);
         let mut files = fs::read_dir(&conf.watching.directory).await?;
         while let Some(entry) = files.next_entry().await? {
-            debug!("examining {entry:?}");
             if let Ok(ft) = entry.file_type().await
                 && ft.is_file()
             {
