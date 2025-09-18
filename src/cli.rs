@@ -78,12 +78,13 @@ fn conf_from_toml<T: for<'a> Deserialize<'a>>(path: &Path) -> io::Result<T> {
 }
 
 fn read_conf_and_chdir<T: for<'a> Deserialize<'a>>(path: &Path) -> io::Result<T> {
-    let path = path.canonicalize()?;
-    let config = conf_from_toml(&path)?;
+    let config = conf_from_toml(path)?;
     let work_dir = path
         .parent()
         .expect("config file should have a parent folder");
-    std::env::set_current_dir(work_dir)?;
+    if work_dir != Path::new("") {
+        std::env::set_current_dir(work_dir)?;
+    }
     Ok(config)
 }
 
