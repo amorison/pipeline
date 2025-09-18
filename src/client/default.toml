@@ -2,7 +2,8 @@
 
 # Client name.
 # This is meant as a convenience to identify more easily the provenance of
-# files on the server side.
+# files on the server side. This can also be accessed in the `processing`
+# command on the server side.
 name = "client_name"
 
 # Command to copy a file to the server for processing.

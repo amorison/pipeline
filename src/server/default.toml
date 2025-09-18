@@ -11,6 +11,8 @@ incoming_directory = "./server"
 # Processing command to apply to incoming files.
 # The following placeholders are replaced:
 # - `{server_path}` is the path of the file on the server;
+# - `{client_name}` is the name of the client as defined in the client
+#   configuration file
 # - `{client_relative_directory}` is the path to the file on the client, relative to
 #   the watched directory;
 # - `{client_file_stem}` is the file name on the client without its extension;
