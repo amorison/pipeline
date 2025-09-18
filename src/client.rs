@@ -22,6 +22,7 @@ type Db = Arc<Mutex<HashSet<PathBuf>>>;
 
 #[derive(Deserialize, Debug)]
 pub(crate) struct Config {
+    name: String,
     copy_to_server: CopyToServer,
     server: Server,
     watching: Watching,

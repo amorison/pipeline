@@ -40,13 +40,15 @@ where
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct FileSpec {
+    client: String,
     path: String,
     filename: String,
     sha256_digest: String,
 }
 
 impl FileSpec {
-    fn new(root: &Path, client_path: &Path) -> io::Result<Self> {
+    fn new<S: Into<String>>(client: S, root: &Path, client_path: &Path) -> io::Result<Self> {
+        let client = client.into();
         let sha256_digest = file_hash(client_path)?;
         let filename = client_path
             .file_name()
@@ -65,6 +67,7 @@ impl FileSpec {
             .collect();
         let path = segments.join("/");
         Ok(FileSpec {
+            client,
             path,
             filename,
             sha256_digest,

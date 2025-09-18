@@ -1,5 +1,10 @@
 # Configuration file for the pipeline client.
 
+# Client name.
+# This is meant as a convenience to identify more easily the provenance of
+# files on the server side.
+name = "client_name"
+
 # Command to copy a file to the server for processing.
 # The following placeholders are replaced:
 # - `{{client_path}}` is the absolute path of the file on the client, see

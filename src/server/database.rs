@@ -17,6 +17,7 @@ pub(super) enum ProcessStatus {
 #[derive(FromRow, Tabled)]
 pub(super) struct FileInPipeline {
     hash: String,
+    client: String,
     date_utc: String,
     path: String,
     file_name: String,
@@ -27,6 +28,7 @@ pub(super) struct FileInPipeline {
 impl From<FileInPipeline> for FileSpec {
     fn from(value: FileInPipeline) -> Self {
         Self {
+            client: value.client,
             path: value.path,
             filename: value.file_name,
             sha256_digest: value.hash,
@@ -70,6 +72,7 @@ impl Database {
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS files_in_pipeline (
                 hash TEXT PRIMARY KEY,
+                client TEXT NOT NULL,
                 date_utc TEXT NOT NULL,
                 path TEXT NOT NULL,
                 file_name TEXT NOT NULL,
@@ -106,8 +109,9 @@ impl Database {
     }
 
     pub(super) async fn insert_new_processing(&self, file: &FileSpec) -> Result<()> {
-        sqlx::query("INSERT INTO files_in_pipeline (hash, date_utc, path, file_name, status) VALUES ($1, datetime('now'), $2, $3, $4);")
+        sqlx::query("INSERT INTO files_in_pipeline (hash, client, date_utc, path, file_name, status) VALUES ($1, $2, datetime('now'), $3, $4, $5);")
             .bind(&file.sha256_digest)
+            .bind(&file.client)
             .bind(&file.path)
             .bind(&file.filename)
             .bind(ProcessStatus::Processing.as_ref())

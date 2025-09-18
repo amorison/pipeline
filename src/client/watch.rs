@@ -41,7 +41,7 @@ async fn examine_file(
 ) -> io::Result<()> {
     debug!("examining {path:?}");
     if let Ok(true) = is_new_watched_path(root, path, db, conf)
-        && let Ok(spec) = FileSpec::new(root, path)
+        && let Ok(spec) = FileSpec::new(conf.name.clone(), root, path)
     {
         info!("found file to process {spec:?}");
         to_server.lock().await.send(spec).await?;
