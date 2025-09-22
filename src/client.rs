@@ -38,7 +38,7 @@ enum CopyToServer {
 #[derive(Deserialize, Debug)]
 #[serde(untagged)]
 enum Server {
-    Address(String),
+    Direct { address: String },
     SshTunnel(SshTunnelConfig),
 }
 
@@ -64,7 +64,7 @@ enum SshAuth {
 pub(crate) static DEFAULT_TOML_CONF: LazyLock<String> = LazyLock::new(|| {
     format!(
         include_str!("client/default.toml"),
-        server_conf = r#"server = "127.0.0.1:12345""#
+        server_conf = "[server]\naddress = \"127.0.0.1:12345\""
     )
 });
 
@@ -199,8 +199,8 @@ async fn send_file_to_server(
 
 pub(crate) async fn main(config: Config) -> io::Result<()> {
     let addr = match &config.server {
-        Server::Address(addr) => SocketAddr::from_str(addr)
-            .unwrap_or_else(|_| panic!("Failed to parse {addr} as a socket address")),
+        Server::Direct { address } => SocketAddr::from_str(address)
+            .unwrap_or_else(|_| panic!("Failed to parse {address} as a socket address")),
         Server::SshTunnel(conf) => ssh_tunnel::setup_tunnel(conf.clone()).await,
     };
 
