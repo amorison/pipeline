@@ -41,3 +41,5 @@ last_modif_secs = 10
 # How often the client should look for new files in the watched directory, in
 # seconds.
 refresh_every_secs = 5
+# Maximum concurrent computations of file hashes
+max_concurrent_hashes = 3

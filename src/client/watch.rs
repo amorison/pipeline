@@ -2,7 +2,10 @@ use std::{ffi::OsStr, io, path::Path, sync::Arc, time::Duration};
 
 use futures_util::SinkExt;
 use log::{debug, info};
-use tokio::{fs, sync::Mutex};
+use tokio::{
+    fs,
+    sync::{Mutex, Semaphore},
+};
 
 use crate::{
     FileSpec, WriteFramedJson,
@@ -38,10 +41,23 @@ async fn examine_file(
     to_server: Arc<Mutex<WriteFramedJson<FileSpec>>>,
     db: &Db,
     conf: &Config,
+    semaphore: Arc<Semaphore>,
 ) -> io::Result<()> {
     debug!("examining {path:?}");
     if let Ok(true) = is_new_watched_path(root, path, db, conf)
-        && let Ok(spec) = FileSpec::new(conf.name.clone(), root, path)
+        && let Ok(spec) = {
+            let client_name = conf.name.clone();
+            let root = root.to_owned();
+            let path = path.to_owned();
+            let permit = semaphore.acquire_owned().await.unwrap();
+            tokio::task::spawn_blocking(move || {
+                let spec = FileSpec::new(client_name, &root, &path);
+                drop(permit);
+                spec
+            })
+            .await
+            .unwrap()
+        }
     {
         info!("found file to process {spec:?}");
         to_server.lock().await.send(spec).await?;
@@ -57,10 +73,11 @@ async fn recurse_through_files(
     conf: &Config,
 ) -> io::Result<()> {
     let mut read_dir = fs::read_dir(dir).await?;
+    let semaphore = Arc::new(Semaphore::new(conf.watching.max_concurrent_hashes));
     while let Some(entry) = read_dir.next_entry().await? {
         let path = entry.path();
         if path.is_file() {
-            examine_file(root, &path, to_server.clone(), db, conf).await?;
+            examine_file(root, &path, to_server.clone(), db, conf, semaphore.clone()).await?;
         } else if path.is_dir() {
             Box::pin(recurse_through_files(
                 root,
