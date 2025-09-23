@@ -44,10 +44,12 @@ async fn processing_pipeline(
 ) {
     let server_path = config.path_of(&file);
 
-    let in_db = db
-        .contains(&file.sha256_digest)
-        .await
-        .expect("failed to read in db");
+    let in_db = loop {
+        match db.contains(&file.sha256_digest).await {
+            Ok(in_db) => break in_db,
+            Err(err) => warn!("failed to check if {file:?} is in database: {err}"),
+        }
+    };
 
     let receipt = if in_db {
         Receipt::Received(file.clone())
@@ -84,9 +86,9 @@ async fn processing_pipeline(
         return;
     }
 
-    db.insert_new_processing(&file)
-        .await
-        .expect("failed to insert in db");
+    while let Err(err) = db.insert_new_processing(&file).await {
+        warn!("failed to insert {file:?} in db: {err}");
+    }
 
     process_file(file, config, db).await;
 }
@@ -94,9 +96,12 @@ async fn processing_pipeline(
 async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
     info!("starting processing for {file:?}");
 
-    db.update_status(&file.sha256_digest, ProcessStatus::Processing)
+    while let Err(err) = db
+        .update_status(&file.sha256_digest, ProcessStatus::Processing)
         .await
-        .expect("failed to insert in db");
+    {
+        warn!("failed to update status of {file:?} in db: {err}");
+    }
 
     let server_path = config.path_of(&file);
 
@@ -138,9 +143,9 @@ async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
         }
     };
 
-    db.update_status(&file.sha256_digest, status)
-        .await
-        .expect("failed to insert in db");
+    while let Err(err) = db.update_status(&file.sha256_digest, status).await {
+        warn!("failed to update status of {file:?} in db: {err}");
+    }
 }
 
 async fn handle_client(
