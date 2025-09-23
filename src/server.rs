@@ -194,13 +194,17 @@ async fn restart_failed_tasks(config: Arc<Config>, db: Database) -> io::Result<(
     loop {
         interval.tick().await;
         debug!("looking for failed tasks to restart");
-        let failed = db
-            .tasks_with_status(ProcessStatus::Failed)
-            .await
-            .expect("failed to read database for failed tasks");
-        for spec in failed.into_iter().map(FileSpec::from) {
-            info!("restarting previously failed {spec:?}");
-            tokio::spawn(process_file(spec, config.clone(), db.clone()));
+        let failed = db.tasks_with_status(ProcessStatus::Failed).await;
+        match failed {
+            Ok(failed) => {
+                for spec in failed.into_iter().map(FileSpec::from) {
+                    info!("restarting previously failed {spec:?}");
+                    tokio::spawn(process_file(spec, config.clone(), db.clone()));
+                }
+            }
+            Err(err) => {
+                warn!("failed to read database for failed tasks: {err}");
+            }
         }
     }
 }
