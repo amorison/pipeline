@@ -1,7 +1,7 @@
 use sqlx::{
     Pool, Result, Sqlite, SqlitePool,
     prelude::{FromRow, Type},
-    sqlite::SqliteConnectOptions,
+    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
 };
 use tabled::Tabled;
 
@@ -51,12 +51,14 @@ pub(super) struct Database(Pool<Sqlite>);
 
 impl Database {
     pub(super) async fn read_only() -> Result<Self> {
-        let pool = SqlitePool::connect_with(
-            SqliteConnectOptions::new()
-                .filename(".pipeline_server.db")
-                .read_only(true),
-        )
-        .await?;
+        let pool_options = SqlitePoolOptions::new().max_connections(200);
+        let pool = pool_options
+            .connect_with(
+                SqliteConnectOptions::new()
+                    .filename(".pipeline_server.db")
+                    .read_only(true),
+            )
+            .await?;
 
         Ok(Self(pool))
     }
