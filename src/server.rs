@@ -12,7 +12,7 @@ use serde::Deserialize;
 use tokio::{
     net::{TcpListener, TcpStream},
     process::Command,
-    sync::Mutex,
+    sync::{Mutex, Semaphore},
     time::MissedTickBehavior,
 };
 
@@ -22,6 +22,7 @@ pub(crate) struct Config {
     incoming_directory: PathBuf,
     processing: Vec<String>,
     retry_tasks_every_secs: u64,
+    max_concurrent_hashes: usize,
 }
 
 impl Config {
@@ -39,6 +40,7 @@ async fn processing_pipeline(
     channel: Arc<Mutex<WriteFramedJson<Receipt>>>,
     config: Arc<Config>,
     db: Database,
+    semaphore: Arc<Semaphore>,
 ) {
     let server_path = config.path_of(&file);
 
@@ -50,7 +52,11 @@ async fn processing_pipeline(
     let receipt = if in_db {
         Receipt::Received(file.clone())
     } else {
-        match file_hash(&server_path) {
+        let hash = {
+            let _permit = semaphore.acquire().await.unwrap();
+            file_hash(&server_path)
+        };
+        match hash {
             Ok(received_hash) => {
                 if file.sha256_digest == received_hash {
                     info!("{file:?} found");
@@ -142,6 +148,7 @@ async fn handle_client(
     addr: SocketAddr,
     config: Arc<Config>,
     db: Database,
+    semaphore: Arc<Semaphore>,
 ) -> io::Result<()> {
     info!("got connection request from {addr:?}");
 
@@ -155,6 +162,7 @@ async fn handle_client(
             to_client.clone(),
             config.clone(),
             db.clone(),
+            semaphore.clone(),
         ));
     }
 
@@ -164,12 +172,19 @@ async fn handle_client(
 
 async fn listen_to_clients(config: Arc<Config>, db: Database) -> io::Result<()> {
     let listener = TcpListener::bind(&config.address).await?;
+    let semaphore = Arc::new(Semaphore::new(config.max_concurrent_hashes));
 
     info!("listening on {:?}", listener.local_addr());
 
     loop {
         let (socket, addr) = listener.accept().await?;
-        tokio::spawn(handle_client(socket, addr, config.clone(), db.clone()));
+        tokio::spawn(handle_client(
+            socket,
+            addr,
+            config.clone(),
+            db.clone(),
+            semaphore.clone(),
+        ));
     }
 }
 
