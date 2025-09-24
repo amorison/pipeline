@@ -1,7 +1,7 @@
 use sqlx::{
     Pool, Result, Sqlite, SqlitePool,
     prelude::{FromRow, Type},
-    sqlite::SqliteConnectOptions,
+    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
 };
 use tabled::Tabled;
 
@@ -62,12 +62,14 @@ impl Database {
     }
 
     pub(super) async fn create_if_missing() -> Result<Self> {
-        let pool = SqlitePool::connect_with(
-            SqliteConnectOptions::new()
-                .filename(".pipeline_server.db")
-                .create_if_missing(true),
-        )
-        .await?;
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(
+                SqliteConnectOptions::new()
+                    .filename(".pipeline_server.db")
+                    .create_if_missing(true),
+            )
+            .await?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS files_in_pipeline (
