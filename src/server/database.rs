@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use sqlx::{
     Pool, Result, Sqlite, SqlitePool,
     prelude::{FromRow, Type},
@@ -64,6 +66,7 @@ impl Database {
     pub(super) async fn create_if_missing() -> Result<Self> {
         let pool = SqlitePoolOptions::new()
             .max_connections(1)
+            .acquire_slow_threshold(Duration::from_secs(5))
             .connect_with(
                 SqliteConnectOptions::new()
                     .filename(".pipeline_server.db")
