@@ -49,6 +49,7 @@ async fn processing_pipeline(
             Ok(in_db) => break in_db,
             Err(err) => warn!("failed to check if {file:?} is in database: {err}"),
         }
+        tokio::time::sleep(Duration::from_secs(1)).await;
     };
 
     let receipt = if in_db {
@@ -88,6 +89,7 @@ async fn processing_pipeline(
 
     while let Err(err) = db.insert_new_processing(&file).await {
         warn!("failed to insert {file:?} in db: {err}");
+        tokio::time::sleep(Duration::from_secs(1)).await;
     }
 
     process_file(file, config, db).await;
@@ -101,6 +103,7 @@ async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
         .await
     {
         warn!("failed to update status of {file:?} in db: {err}");
+        tokio::time::sleep(Duration::from_secs(1)).await;
     }
 
     let server_path = config.path_of(&file);
@@ -145,6 +148,7 @@ async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
 
     while let Err(err) = db.update_status(&file.sha256_digest, status).await {
         warn!("failed to update status of {file:?} in db: {err}");
+        tokio::time::sleep(Duration::from_secs(1)).await;
     }
 }
 
