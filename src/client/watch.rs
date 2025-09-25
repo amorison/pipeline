@@ -18,7 +18,7 @@ use crate::{
     client::{Config, Db},
 };
 
-fn insert_path(db: Db, path: &Path) -> bool {
+fn insert_path(db: &Db, path: &Path) -> bool {
     let mut db = db.try_lock().unwrap();
     if db.contains(path) {
         false
@@ -27,7 +27,7 @@ fn insert_path(db: Db, path: &Path) -> bool {
     }
 }
 
-fn is_new_watched_path(root: &Path, path: &Path, db: Db, conf: &Config) -> io::Result<bool> {
+fn is_new_watched_path(root: &Path, path: &Path, db: &Db, conf: &Config) -> io::Result<bool> {
     if path
         .extension()
         .is_some_and(|ext| *ext == *conf.watching.extension)
@@ -50,7 +50,7 @@ async fn examine_file(
     semaphore: Arc<Semaphore>,
 ) -> io::Result<()> {
     debug!("examining {path:?}");
-    if let Ok(true) = is_new_watched_path(&root, &path, db, &conf)
+    if let Ok(true) = is_new_watched_path(&root, &path, &db, &conf)
         && let Ok(spec) = {
             let client_name = conf.name.clone();
             let root = root.to_owned();
