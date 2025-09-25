@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use sqlx::{
-    Pool, Result, Sqlite, SqlitePool,
+    ConnectOptions, Pool, Result, Sqlite, SqlitePool,
     prelude::{FromRow, Type},
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
 };
@@ -70,6 +70,7 @@ impl Database {
             .connect_with(
                 SqliteConnectOptions::new()
                     .filename(".pipeline_server.db")
+                    .log_slow_statements(log::LevelFilter::Warn, Duration::from_secs(5))
                     .create_if_missing(true),
             )
             .await?;
