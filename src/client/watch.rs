@@ -53,8 +53,8 @@ async fn examine_file(
     if let Ok(true) = is_new_watched_path(&root, &path, &db, &conf)
         && let Ok(spec) = {
             let client_name = conf.name.clone();
-            let root = root.to_owned();
-            let path = path.to_owned();
+            let root = root.clone();
+            let path = path.clone();
             let permit = semaphore.acquire_owned().await.unwrap();
             tokio::task::spawn_blocking(move || {
                 let spec = FileSpec::new(client_name, &root, &path);
