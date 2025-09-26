@@ -4,10 +4,12 @@ ssh_host = "192.168.0.1"
 # port of ssh host
 ssh_port = 22
 # authentication on ssh host
-# Other strategies are available:
-# - ask password to user with
+# The following methods are available:
+# - no authentication (e.g. if otherwise managed by network interface)
+#   { method = "none", user = "user" }
+# - ask password to user
 #   { method = "password", user = "user" }
-# - use a key via the openssh agent at `SSH_AUTH_SOCK` with
+# - use a key via the openssh agent at `SSH_AUTH_SOCK`
 #   { method = "key", user = "user", public_key = "path/to/key.pub" }
 ssh_auth = { method = "none", user = "user" }
 # send a keepalive if no communication occurs for this duration in seconds
