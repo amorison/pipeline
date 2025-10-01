@@ -126,7 +126,7 @@ async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
             )
         }))
         .spawn()
-        .expect("could not spawn `copy_to_server` command");
+        .expect("could not spawn `processing` command");
 
     let status = match processing.wait().await {
         Ok(status) if status.success() => {
