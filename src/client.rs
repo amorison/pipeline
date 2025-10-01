@@ -104,7 +104,7 @@ async fn listen_to_server(
                 if let Err(err) = fs::remove_file(&path).await {
                     warn!("error when removing {path:?}: {err}");
                 }
-                db.try_lock().unwrap().remove(&spec.relative_path());
+                db.lock().await.remove(&spec.relative_path());
             }
             Receipt::DifferentHash { spec, .. } => {
                 info!("server does not have expected hash for {spec:?}, resending");

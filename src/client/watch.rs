@@ -18,8 +18,8 @@ use crate::{
     client::{Config, Db},
 };
 
-fn insert_path(db: &Db, path: &Path) -> bool {
-    let mut db = db.try_lock().unwrap();
+async fn insert_path(db: &Db, path: &Path) -> bool {
+    let mut db = db.lock().await;
     if db.contains(path) {
         false
     } else {
@@ -27,7 +27,7 @@ fn insert_path(db: &Db, path: &Path) -> bool {
     }
 }
 
-fn is_new_watched_path(root: &Path, path: &Path, db: &Db, conf: &Config) -> io::Result<bool> {
+async fn is_new_watched_path(root: &Path, path: &Path, db: &Db, conf: &Config) -> io::Result<bool> {
     if path
         .extension()
         .is_some_and(|ext| *ext == *conf.watching.extension)
@@ -35,7 +35,7 @@ fn is_new_watched_path(root: &Path, path: &Path, db: &Db, conf: &Config) -> io::
         && let Ok(last_modif) = path.metadata()?.modified()?.elapsed()
         && last_modif > Duration::from_secs(conf.watching.last_modif_secs)
     {
-        Ok(insert_path(db, path.strip_prefix(root).unwrap()))
+        Ok(insert_path(db, path.strip_prefix(root).unwrap()).await)
     } else {
         Ok(false)
     }
@@ -50,7 +50,7 @@ async fn examine_file(
     semaphore: Arc<Semaphore>,
 ) -> io::Result<()> {
     debug!("examining {path:?}");
-    if let Ok(true) = is_new_watched_path(&root, &path, &db, &conf)
+    if let Ok(true) = is_new_watched_path(&root, &path, &db, &conf).await
         && let Ok(spec) = {
             let client_name = conf.name.clone();
             let root = root.clone();
