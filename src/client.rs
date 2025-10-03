@@ -82,6 +82,7 @@ struct Watching {
     last_modif_secs: u64,
     refresh_every_secs: u64,
     max_concurrent_hashes: usize,
+    full_hash: bool,
 }
 
 impl Config {

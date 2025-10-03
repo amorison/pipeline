@@ -43,3 +43,8 @@ last_modif_secs = 10
 refresh_every_secs = 5
 # Maximum concurrent computations of file hashes
 max_concurrent_hashes = 3
+# Whether to use full hashes (of the entire file contents), or shallow hashes.
+# It is recommended to use full hashes when possible for more robust data
+# integrity check. Shallow hashes should be reserved for when the pipeline has
+# to process large files for which the computation of the hash is too slow.
+full_hash = true

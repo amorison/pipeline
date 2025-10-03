@@ -57,7 +57,7 @@ async fn examine_file(
             let path = path.clone();
             let permit = semaphore.acquire_owned().await.unwrap();
             tokio::task::spawn_blocking(move || {
-                let spec = FileSpec::new(client_name, &root, &path);
+                let spec = FileSpec::new(client_name, &root, &path, conf.watching.full_hash);
                 drop(permit);
                 spec
             })

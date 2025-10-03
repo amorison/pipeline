@@ -40,9 +40,14 @@ struct FileSpec {
 }
 
 impl FileSpec {
-    fn new<S: Into<String>>(client: S, root: &Path, client_path: &Path) -> io::Result<Self> {
+    fn new<S: Into<String>>(
+        client: S,
+        root: &Path,
+        client_path: &Path,
+        full_hash: bool,
+    ) -> io::Result<Self> {
         let client = client.into();
-        let sha256_digest = FileDigest::new(client_path, true)?; // FIXME
+        let sha256_digest = FileDigest::new(client_path, full_hash)?;
         let filename = client_path
             .file_name()
             .unwrap()
