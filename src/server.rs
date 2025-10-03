@@ -4,7 +4,7 @@ pub(crate) mod prune;
 
 use std::{io, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 
-use crate::{FileSpec, Receipt, WriteFramedJson, file_hash, replace_os_strings};
+use crate::{FileSpec, Receipt, WriteFramedJson, hashing::FileDigest, replace_os_strings};
 use database::{Database, ProcessStatus};
 use futures_util::{SinkExt, TryStreamExt};
 use log::{debug, info, warn};
@@ -45,7 +45,7 @@ async fn processing_pipeline(
     let server_path = config.path_of(&file);
 
     let in_db = loop {
-        match db.contains(&file.sha256_digest).await {
+        match db.contains(file.hash()).await {
             Ok(in_db) => break in_db,
             Err(err) => warn!("failed to check if {file:?} is in database: {err}"),
         }
@@ -57,7 +57,7 @@ async fn processing_pipeline(
     } else {
         let hash = {
             let _permit = semaphore.acquire().await.unwrap();
-            file_hash(&server_path)
+            FileDigest::with_spec(&server_path, &file)
         };
         match hash {
             Ok(received_hash) => {
@@ -65,6 +65,7 @@ async fn processing_pipeline(
                     info!("{file:?} found");
                     Receipt::Received(file.clone())
                 } else {
+                    let received_hash = received_hash.hash().to_owned();
                     warn!("{file:?} does not have expected hash");
                     Receipt::DifferentHash {
                         spec: file.clone(),
@@ -99,7 +100,7 @@ async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
     info!("starting processing for {file:?}");
 
     while let Err(err) = db
-        .update_status(&file.sha256_digest, ProcessStatus::Processing)
+        .update_status(file.hash(), ProcessStatus::Processing)
         .await
     {
         warn!("failed to update status of {file:?} in db: {err}");
@@ -113,7 +114,7 @@ async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
             replace_os_strings(
                 a,
                 [
-                    ("{hash}", file.sha256_digest.as_ref()),
+                    ("{hash}", file.hash().as_ref()),
                     ("{server_path}", server_path.as_os_str()),
                     ("{client_name}", file.client.as_ref()),
                     (
@@ -146,7 +147,7 @@ async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
         }
     };
 
-    while let Err(err) = db.update_status(&file.sha256_digest, status).await {
+    while let Err(err) = db.update_status(file.hash(), status).await {
         warn!("failed to update status of {file:?} in db: {err}");
         tokio::time::sleep(Duration::from_secs(1)).await;
     }

@@ -17,7 +17,7 @@ use tokio::net::{
 use tokio_serde::{SymmetricallyFramed, formats::SymmetricalJson};
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 
-use crate::hashing::file_hash;
+use crate::hashing::FileDigest;
 
 fn replace_os_strings<'a, I>(arg: &str, replacements: I) -> OsString
 where
@@ -36,13 +36,13 @@ struct FileSpec {
     client: String,
     path: String,
     filename: String,
-    sha256_digest: String,
+    sha256_digest: FileDigest,
 }
 
 impl FileSpec {
     fn new<S: Into<String>>(client: S, root: &Path, client_path: &Path) -> io::Result<Self> {
         let client = client.into();
-        let sha256_digest = file_hash(client_path)?;
+        let sha256_digest = FileDigest::new(client_path, true)?; // FIXME
         let filename = client_path
             .file_name()
             .unwrap()
@@ -67,8 +67,12 @@ impl FileSpec {
         })
     }
 
+    fn hash(&self) -> &str {
+        self.sha256_digest.hash()
+    }
+
     fn server_filename(&self) -> &OsStr {
-        self.sha256_digest.as_ref()
+        self.sha256_digest.hash().as_ref()
     }
 
     fn relative_directory(&self) -> &Path {

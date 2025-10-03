@@ -7,7 +7,7 @@ use sqlx::{
 };
 use tabled::Tabled;
 
-use crate::FileSpec;
+use crate::{FileSpec, hashing::FileDigest};
 
 #[derive(Copy, Clone, Type, Debug)]
 pub(super) enum ProcessStatus {
@@ -19,6 +19,7 @@ pub(super) enum ProcessStatus {
 #[derive(FromRow, Tabled)]
 pub(super) struct FileInPipeline {
     hash: String,
+    full_hash: bool,
     client: String,
     date_utc: String,
     path: String,
@@ -29,11 +30,17 @@ pub(super) struct FileInPipeline {
 
 impl From<FileInPipeline> for FileSpec {
     fn from(value: FileInPipeline) -> Self {
+        let hash = value.hash;
+        let sha256_digest = if value.full_hash {
+            FileDigest::Full(hash)
+        } else {
+            FileDigest::Shallow(hash)
+        };
         Self {
             client: value.client,
             path: value.path,
             filename: value.file_name,
-            sha256_digest: value.hash,
+            sha256_digest,
         }
     }
 }
@@ -78,6 +85,7 @@ impl Database {
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS files_in_pipeline (
                 hash TEXT PRIMARY KEY,
+                full_hash INTEGER NOT NULL,
                 client TEXT NOT NULL,
                 date_utc TEXT NOT NULL,
                 path TEXT NOT NULL,
@@ -115,8 +123,9 @@ impl Database {
     }
 
     pub(super) async fn insert_new_processing(&self, file: &FileSpec) -> Result<()> {
-        sqlx::query("INSERT INTO files_in_pipeline (hash, client, date_utc, path, file_name, status) VALUES ($1, $2, datetime('now'), $3, $4, $5);")
-            .bind(&file.sha256_digest)
+        sqlx::query("INSERT INTO files_in_pipeline (hash, full_hash, client, date_utc, path, file_name, status) VALUES ($1, $2, $3, datetime('now'), $4, $5, $6);")
+            .bind(file.hash())
+            .bind(file.sha256_digest.is_full())
             .bind(&file.client)
             .bind(&file.path)
             .bind(&file.filename)

@@ -31,7 +31,7 @@ pub(crate) async fn main(config: Config, force: bool) -> io::Result<()> {
             if let Err(err) = std::fs::remove_file(&server_path) {
                 eprintln!("couldn't remove {file:?}: {err}");
             }
-            if let Err(err) = db.remove(&file.sha256_digest).await {
+            if let Err(err) = db.remove(file.hash()).await {
                 debug!("error when removing {file:?} from db: {err}");
             }
         } else {
