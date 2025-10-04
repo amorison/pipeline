@@ -13,7 +13,7 @@ hex = "0.4.3"
 log = "0.4.28"
 rpassword = "7.4.0"
 russh = { version = "0.54.4", default-features = false, features = ["ring"] }
-serde = {version="1.0.227", features=["derive"]}
+serde = {version="1.0.228", features=["derive"]}
 serde_json = "1.0.145"
 sha2 = "0.10.9"
 sqlx = { version = "0.8.6", features = ["runtime-tokio", "sqlite"] }
@@ -22,7 +22,7 @@ tokio = { version = "1.47.1", features = ["full"] }
 tokio-serde = { version = "0.9.0", features = ["json"] }
 tokio-util = { version = "0.7.16", features = ["full"] }
 toml = "0.9.7"
-zeroize = "1.8.1"
+zeroize = "1.8.2"
 
 [profile.release]
 lto = true
