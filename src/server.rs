@@ -40,7 +40,7 @@ async fn processing_pipeline(
     channel: Arc<Mutex<WriteFramedJson<Receipt>>>,
     config: Arc<Config>,
     db: Database,
-    semaphore: Arc<Semaphore>,
+    sem_hash: Arc<Semaphore>,
 ) {
     let server_path = config.path_of(&file);
 
@@ -56,7 +56,7 @@ async fn processing_pipeline(
         Receipt::Received(file.clone())
     } else {
         let hash = {
-            let _permit = semaphore.acquire().await.unwrap();
+            let _permit = sem_hash.acquire().await.unwrap();
             FileDigest::with_spec(&server_path, &file)
         };
         match hash {
@@ -158,7 +158,7 @@ async fn handle_client(
     addr: SocketAddr,
     config: Arc<Config>,
     db: Database,
-    semaphore: Arc<Semaphore>,
+    sem_hash: Arc<Semaphore>,
 ) -> io::Result<()> {
     info!("got connection request from {addr:?}");
 
@@ -172,7 +172,7 @@ async fn handle_client(
             to_client.clone(),
             config.clone(),
             db.clone(),
-            semaphore.clone(),
+            sem_hash.clone(),
         ));
     }
 
@@ -182,7 +182,7 @@ async fn handle_client(
 
 async fn listen_to_clients(config: Arc<Config>, db: Database) -> io::Result<()> {
     let listener = TcpListener::bind(&config.address).await?;
-    let semaphore = Arc::new(Semaphore::new(config.max_concurrent_hashes));
+    let sem_hash = Arc::new(Semaphore::new(config.max_concurrent_hashes));
 
     info!("listening on {:?}", listener.local_addr());
 
@@ -193,7 +193,7 @@ async fn listen_to_clients(config: Arc<Config>, db: Database) -> io::Result<()> 
             addr,
             config.clone(),
             db.clone(),
-            semaphore.clone(),
+            sem_hash.clone(),
         ));
     }
 }
