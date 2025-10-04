@@ -122,8 +122,10 @@ async fn listen_to_server(
                 db.lock().await.remove(&spec.relative_path());
             }
             Receipt::DifferentHash { spec, .. } => {
-                info!("server does not have expected hash for {spec:?}, resending");
-                send_file_to_server(to_server.clone(), spec, conf.clone()).await;
+                warn!(
+                    "server does not have expected hash for {spec:?}, forgetting it in case of TOCTOU condition"
+                );
+                db.lock().await.remove(&spec.relative_path());
             }
             Receipt::Error { spec, error } => {
                 info!("server says '{error}' for {spec:?}, resending");
