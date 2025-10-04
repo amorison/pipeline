@@ -20,6 +20,10 @@ name = "client_name"
 # file instead of relying on an external process. For instance, the copy in the
 # example command can be more efficiently achieved with
 # copy_to_server = {{ destination = "./server" }}
+#
+# Finally, if the server and the client operate on the same filesystem, you can
+# ask pipeline to merely rename the file for better performance:
+# copy_to_server = {{ move_in_same_fs_to = "./server" }}
 copy_to_server = [
     "cp",
     "{{client_path}}",
