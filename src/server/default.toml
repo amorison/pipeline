@@ -28,5 +28,6 @@ processing = [
 # Period in seconds at which failed tasks should be retried.
 retry_tasks_every_secs = 60
 
+[concurrency]
 # Maximum concurrent computations of file hashes
-max_concurrent_hashes = 3
+max_hashes = 3

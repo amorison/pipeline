@@ -22,7 +22,12 @@ pub(crate) struct Config {
     incoming_directory: PathBuf,
     processing: Vec<String>,
     retry_tasks_every_secs: u64,
-    max_concurrent_hashes: usize,
+    concurrency: Concurrency,
+}
+
+#[derive(Deserialize, Debug, PartialEq, Eq)]
+struct Concurrency {
+    max_hashes: usize,
 }
 
 impl Config {
@@ -182,7 +187,7 @@ async fn handle_client(
 
 async fn listen_to_clients(config: Arc<Config>, db: Database) -> io::Result<()> {
     let listener = TcpListener::bind(&config.address).await?;
-    let sem_hash = Arc::new(Semaphore::new(config.max_concurrent_hashes));
+    let sem_hash = Arc::new(Semaphore::new(config.concurrency.max_hashes));
 
     info!("listening on {:?}", listener.local_addr());
 
