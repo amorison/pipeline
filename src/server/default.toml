@@ -31,3 +31,5 @@ retry_tasks_every_secs = 60
 [concurrency]
 # Maximum concurrent computations of file hashes
 max_hashes = 3
+# Maximum spawns of the `processing` command
+max_processing = 8

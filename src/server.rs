@@ -28,6 +28,7 @@ pub(crate) struct Config {
 #[derive(Deserialize, Debug, PartialEq, Eq)]
 struct Concurrency {
     max_hashes: usize,
+    max_processing: usize,
 }
 
 impl Config {
@@ -46,6 +47,7 @@ async fn processing_pipeline(
     config: Arc<Config>,
     db: Database,
     sem_hash: Arc<Semaphore>,
+    sem_proc: Arc<Semaphore>,
 ) {
     let server_path = config.path_of(&file);
 
@@ -98,7 +100,9 @@ async fn processing_pipeline(
         tokio::time::sleep(Duration::from_secs(1)).await;
     }
 
+    let permit_proc = sem_proc.acquire().await.unwrap();
     process_file(file, config, db).await;
+    drop(permit_proc);
 }
 
 async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
@@ -164,6 +168,7 @@ async fn handle_client(
     config: Arc<Config>,
     db: Database,
     sem_hash: Arc<Semaphore>,
+    sem_proc: Arc<Semaphore>,
 ) -> io::Result<()> {
     info!("got connection request from {addr:?}");
 
@@ -178,6 +183,7 @@ async fn handle_client(
             config.clone(),
             db.clone(),
             sem_hash.clone(),
+            sem_proc.clone(),
         ));
     }
 
@@ -188,6 +194,7 @@ async fn handle_client(
 async fn listen_to_clients(config: Arc<Config>, db: Database) -> io::Result<()> {
     let listener = TcpListener::bind(&config.address).await?;
     let sem_hash = Arc::new(Semaphore::new(config.concurrency.max_hashes));
+    let sem_proc = Arc::new(Semaphore::new(config.concurrency.max_processing));
 
     info!("listening on {:?}", listener.local_addr());
 
@@ -199,6 +206,7 @@ async fn listen_to_clients(config: Arc<Config>, db: Database) -> io::Result<()> 
             config.clone(),
             db.clone(),
             sem_hash.clone(),
+            sem_proc.clone(),
         ));
     }
 }
