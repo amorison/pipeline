@@ -59,9 +59,22 @@ async fn processing_pipeline(
         tokio::time::sleep(Duration::from_secs(1)).await;
     };
 
-    let receipt = if in_db {
-        Receipt::Received(file.clone())
+    let await_first_arrival = if in_db {
+        let status = loop {
+            match db.status(file.hash()).await {
+                Ok(status) => break status,
+                Err(err) => warn!("failed to check status of {file:?} in db: {err}"),
+            }
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        };
+        matches!(status, ProcessStatus::AwaitFromClient)
     } else {
+        false
+    };
+
+    let receipt = if in_db && !await_first_arrival {
+        Receipt::Received(file.clone())
+    } else if in_db {
         let hash = {
             let _permit = sem_hash.acquire().await.unwrap();
             FileDigest::with_spec(&server_path, &file)
@@ -81,23 +94,25 @@ async fn processing_pipeline(
                 }
             }
             Err(err) => {
-                info!("{file:?} not found {err:?}");
+                warn!("{file:?} not found {err:?}");
                 Receipt::Error {
                     spec: file.clone(),
                     error: err.to_string(),
                 }
             }
         }
+    } else {
+        while let Err(err) = db.insert_new(&file).await {
+            warn!("failed to insert {file:?} in db: {err}");
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+        Receipt::Expecting(file.clone())
     };
+
     let continue_processing = receipt.continue_processing();
     channel.lock().await.send(receipt).await.unwrap();
-    if in_db || !continue_processing {
+    if !continue_processing {
         return;
-    }
-
-    while let Err(err) = db.insert_new_processing(&file).await {
-        warn!("failed to insert {file:?} in db: {err}");
-        tokio::time::sleep(Duration::from_secs(1)).await;
     }
 
     let permit_proc = sem_proc.acquire().await.unwrap();

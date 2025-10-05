@@ -11,6 +11,7 @@ use crate::{FileSpec, hashing::FileDigest};
 
 #[derive(Copy, Clone, Type, Debug)]
 pub(super) enum ProcessStatus {
+    AwaitFromClient,
     Processing,
     Failed,
     Done,
@@ -48,6 +49,7 @@ impl From<FileInPipeline> for FileSpec {
 impl AsRef<str> for ProcessStatus {
     fn as_ref(&self) -> &str {
         match self {
+            ProcessStatus::AwaitFromClient => "AwaitFromClient",
             ProcessStatus::Processing => "Processing",
             ProcessStatus::Failed => "Failed",
             ProcessStatus::Done => "Done",
@@ -115,6 +117,13 @@ impl Database {
             .await
     }
 
+    pub(super) async fn status(&self, hash: &str) -> Result<ProcessStatus> {
+        sqlx::query_scalar("SELECT status FROM files_in_pipeline WHERE hash = $1;")
+            .bind(hash)
+            .fetch_one(&self.0)
+            .await
+    }
+
     pub(super) async fn contains(&self, hash: &str) -> Result<bool> {
         sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM files_in_pipeline WHERE hash = $1);")
             .bind(hash)
@@ -122,14 +131,14 @@ impl Database {
             .await
     }
 
-    pub(super) async fn insert_new_processing(&self, file: &FileSpec) -> Result<()> {
+    pub(super) async fn insert_new(&self, file: &FileSpec) -> Result<()> {
         sqlx::query("INSERT INTO files_in_pipeline (hash, full_hash, client, date_utc, path, file_name, status) VALUES ($1, $2, $3, datetime('now'), $4, $5, $6);")
             .bind(file.hash())
             .bind(file.sha256_digest.is_full())
             .bind(&file.client)
             .bind(&file.path)
             .bind(&file.filename)
-            .bind(ProcessStatus::Processing.as_ref())
+            .bind(ProcessStatus::AwaitFromClient.as_ref())
             .execute(&self.0)
             .await?;
         Ok(())

@@ -110,6 +110,10 @@ async fn listen_to_server(
 ) -> io::Result<()> {
     while let Some(msg) = from_server.try_next().await? {
         match msg {
+            Receipt::Expecting(spec) => {
+                info!("server awaiting {spec:?}, sending according to `copy_to_server`");
+                send_file_to_server(to_server.clone(), spec, conf.clone()).await;
+            }
             Receipt::Received(spec) => {
                 info!("server confirmed reception of {spec:?}");
                 if conf.copy_to_server.requires_cleanup() {
@@ -128,7 +132,7 @@ async fn listen_to_server(
                 db.lock().await.remove(&spec.relative_path());
             }
             Receipt::Error { spec, error } => {
-                info!("server says '{error}' for {spec:?}, resending");
+                warn!("server says '{error}' for {spec:?}, resending");
                 send_file_to_server(to_server.clone(), spec, conf.clone()).await;
             }
         }

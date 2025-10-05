@@ -96,6 +96,7 @@ impl FileSpec {
 
 #[derive(Serialize, Deserialize, Debug)]
 enum Receipt {
+    Expecting(FileSpec),
     Received(FileSpec),
     DifferentHash {
         spec: FileSpec,
