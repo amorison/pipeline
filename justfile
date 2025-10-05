@@ -24,7 +24,7 @@ create-rand-file:
     #!/bin/bash
     dirname={{clientdir}}/$(openssl rand -hex 2)/$(openssl rand -hex 2)
     mkdir -p $dirname
-    openssl rand -out $dirname/foo-$(openssl rand -hex 4).mrc 128
+    openssl rand -out $dirname/foo-$(openssl rand -hex 4).dat 128
 
 # prepare a new release
 release version:

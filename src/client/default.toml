@@ -38,7 +38,7 @@ copy_to_server = [
 # Path of the directory to watch for new files.
 directory = "./client"
 # The extension of files to process.
-extension = "mrc"
+extension = "dat"
 # How long ago the last modification should be (in seconds) for the file to be
 # considered ready for processing.
 last_modif_secs = 10
