@@ -132,21 +132,27 @@ impl Database {
     }
 
     pub(super) async fn insert_new(&self, file: &FileSpec) -> Result<()> {
-        sqlx::query("INSERT INTO files_in_pipeline (hash, full_hash, client, date_utc, path, file_name, status) VALUES ($1, $2, $3, datetime('now'), $4, $5, $6);")
-            .bind(file.hash())
-            .bind(file.sha256_digest.is_full())
-            .bind(&file.client)
-            .bind(&file.path)
-            .bind(&file.filename)
-            .bind(ProcessStatus::AwaitFromClient.as_ref())
-            .execute(&self.0)
-            .await?;
+        sqlx::query(
+            "INSERT INTO files_in_pipeline
+            (hash, full_hash, client, date_utc, path, file_name, status)
+            VALUES ($1, $2, $3, datetime('now'), $4, $5, $6);",
+        )
+        .bind(file.hash())
+        .bind(file.sha256_digest.is_full())
+        .bind(&file.client)
+        .bind(&file.path)
+        .bind(&file.filename)
+        .bind(ProcessStatus::AwaitFromClient.as_ref())
+        .execute(&self.0)
+        .await?;
         Ok(())
     }
 
     pub(super) async fn update_status(&self, hash: &str, status: ProcessStatus) -> Result<()> {
         sqlx::query(
-            "UPDATE files_in_pipeline SET date_utc = datetime('now'), status = $2 WHERE hash = $1;",
+            "UPDATE files_in_pipeline
+            SET date_utc = datetime('now'), status = $2
+            WHERE hash = $1;",
         )
         .bind(hash)
         .bind(status.as_ref())
