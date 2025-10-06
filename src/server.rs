@@ -121,6 +121,18 @@ async fn processing_pipeline(
 }
 
 async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
+    let status = loop {
+        match db.status(file.hash()).await {
+            Ok(status) => break status,
+            Err(err) => warn!("failed to check status of {file:?} in db: {err}"),
+        }
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    };
+    if matches!(status, ProcessStatus::Processing) {
+        info!("{file:?} is already being processed");
+        return;
+    }
+
     info!("starting processing for {file:?}");
 
     while let Err(err) = db
