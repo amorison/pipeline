@@ -33,13 +33,15 @@ struct Concurrency {
 
 impl Config {
     pub(crate) fn path_of(&self, file: &FileSpec) -> PathBuf {
-        let mut path = self.incoming_directory.clone();
-        path.push(file.server_filename());
-        path
+        self.incoming_directory.join(rel_path(file))
     }
 }
 
 pub(crate) static DEFAULT_TOML_CONF: &str = include_str!("server/default.toml");
+
+fn rel_path(spec: &FileSpec) -> String {
+    spec.hash().to_owned()
+}
 
 async fn processing_pipeline(
     file: FileSpec,
@@ -97,6 +99,7 @@ async fn processing_pipeline(
                 warn!("{file:?} not found {err:?}");
                 Receipt::Error {
                     spec: file.clone(),
+                    server_rel_path: rel_path(&file),
                     error: err.to_string(),
                 }
             }
@@ -106,7 +109,10 @@ async fn processing_pipeline(
             warn!("failed to insert {file:?} in db: {err}");
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
-        Receipt::Expecting(file.clone())
+        Receipt::Expecting {
+            spec: file.clone(),
+            server_rel_path: rel_path(&file),
+        }
     };
 
     let continue_processing = receipt.continue_processing();

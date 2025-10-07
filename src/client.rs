@@ -110,9 +110,12 @@ async fn listen_to_server(
 ) -> io::Result<()> {
     while let Some(msg) = from_server.try_next().await? {
         match msg {
-            Receipt::Expecting(spec) => {
+            Receipt::Expecting {
+                spec,
+                server_rel_path,
+            } => {
                 info!("server awaiting {spec:?}, sending according to `copy_to_server`");
-                send_file_to_server(to_server.clone(), spec, conf.clone()).await;
+                send_file_to_server(to_server.clone(), spec, server_rel_path, conf.clone()).await;
             }
             Receipt::Received(spec) => {
                 info!("server confirmed reception of {spec:?}");
@@ -131,9 +134,13 @@ async fn listen_to_server(
                 );
                 db.lock().await.remove(&spec.relative_path());
             }
-            Receipt::Error { spec, error } => {
+            Receipt::Error {
+                spec,
+                server_rel_path,
+                error,
+            } => {
                 warn!("server says '{error}' for {spec:?}, resending");
-                send_file_to_server(to_server.clone(), spec, conf.clone()).await;
+                send_file_to_server(to_server.clone(), spec, server_rel_path, conf.clone()).await;
             }
         }
     }
@@ -171,20 +178,19 @@ impl From<io::Result<()>> for CopyOutcome {
 async fn send_file_to_server(
     to_server: Arc<Mutex<WriteFramedJson<FileSpec>>>,
     spec: FileSpec,
+    server_rel_path: String,
     conf: Arc<Config>,
 ) {
     let from = conf.watched_path(&spec);
     let outcome = match &conf.copy_to_server {
         CopyToServer::Move { move_in_same_fs_to } => {
             info!("move {spec:?} to server via `fs::rename`");
-            let mut destination = move_in_same_fs_to.clone();
-            destination.push(spec.server_filename());
+            let destination = move_in_same_fs_to.join(server_rel_path);
             fs::rename(from, destination).await.map(|_| ()).into()
         }
         CopyToServer::Copy { destination } => {
             info!("copying {spec:?} to server via `fs::copy`");
-            let mut destination = destination.clone();
-            destination.push(spec.server_filename());
+            let destination = destination.join(server_rel_path);
             fs::copy(from, destination).await.map(|_| ()).into()
         }
         CopyToServer::Command(items) => {
@@ -194,7 +200,7 @@ async fn send_file_to_server(
                     replace_os_strings(
                         a,
                         [
-                            ("{server_filename}", spec.server_filename()),
+                            ("{server_filename}", server_rel_path.as_ref()),
                             ("{client_path}", from.as_os_str()),
                         ]
                         .into_iter(),

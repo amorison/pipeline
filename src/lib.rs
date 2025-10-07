@@ -76,10 +76,6 @@ impl FileSpec {
         self.sha256_digest.hash()
     }
 
-    fn server_filename(&self) -> &OsStr {
-        self.sha256_digest.hash().as_ref()
-    }
-
     fn relative_directory(&self) -> &Path {
         self.path.as_ref()
     }
@@ -96,7 +92,10 @@ impl FileSpec {
 
 #[derive(Serialize, Deserialize, Debug)]
 enum Receipt {
-    Expecting(FileSpec),
+    Expecting {
+        spec: FileSpec,
+        server_rel_path: String,
+    },
     Received(FileSpec),
     DifferentHash {
         spec: FileSpec,
@@ -104,6 +103,7 @@ enum Receipt {
     },
     Error {
         spec: FileSpec,
+        server_rel_path: String,
         error: String,
     },
 }
