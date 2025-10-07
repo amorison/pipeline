@@ -186,7 +186,7 @@ async fn send_file_to_server(
         CopyToServer::Move { move_in_same_fs_to } => {
             info!("move {spec:?} to server via `fs::rename`");
             let destination = move_in_same_fs_to.join(server_rel_path);
-            fs::rename(from, destination).await.map(|_| ()).into()
+            fs::rename(from, destination).await.into()
         }
         CopyToServer::Copy { destination } => {
             info!("copying {spec:?} to server via `fs::copy`");
