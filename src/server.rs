@@ -2,7 +2,7 @@ pub(crate) mod database;
 pub(crate) mod list;
 pub(crate) mod prune;
 
-use std::{io, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
+use std::{fs, io, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
 
 use crate::{FileSpec, Receipt, WriteFramedJson, hashing::FileDigest, replace_os_strings};
 use database::{Database, ProcessStatus};
@@ -33,14 +33,22 @@ struct Concurrency {
 
 impl Config {
     pub(crate) fn path_of(&self, file: &FileSpec) -> PathBuf {
-        self.incoming_directory.join(rel_path(file))
+        self.incoming_directory.join(rel_path(file, self))
     }
 }
 
 pub(crate) static DEFAULT_TOML_CONF: &str = include_str!("server/default.toml");
 
-fn rel_path(spec: &FileSpec) -> String {
-    spec.hash().to_owned()
+fn rel_path(spec: &FileSpec, config: &Config) -> String {
+    let hash = spec.hash();
+    let bucket = hash[0..2].to_owned() + "/" + &hash[2..4];
+    match fs::create_dir_all(config.incoming_directory.join(&bucket)) {
+        Ok(_) => bucket + "/" + hash,
+        Err(err) => {
+            warn!("failed to create {bucket}: {err}");
+            hash.to_owned()
+        }
+    }
 }
 
 async fn processing_pipeline(
@@ -99,7 +107,7 @@ async fn processing_pipeline(
                 warn!("{file:?} not found {err:?}");
                 Receipt::Error {
                     spec: file.clone(),
-                    server_rel_path: rel_path(&file),
+                    server_rel_path: rel_path(&file, &config),
                     error: err.to_string(),
                 }
             }
@@ -111,7 +119,7 @@ async fn processing_pipeline(
         }
         Receipt::Expecting {
             spec: file.clone(),
-            server_rel_path: rel_path(&file),
+            server_rel_path: rel_path(&file, &config),
         }
     };
 
