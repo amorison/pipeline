@@ -1,5 +1,7 @@
 # Configuration file for the pipeline server.
 
+# Relative paths are resolved with respect to this file location.
+
 # Location of the server, communication occurs via TCP.
 address = "127.0.0.1:12345"
 
@@ -9,16 +11,18 @@ address = "127.0.0.1:12345"
 incoming_directory = "./server"
 
 # Processing command to apply to incoming files.
-# The following placeholders are replaced:
+#
+# This is a list of strings representing the command and its arguments.
+# The following placeholders are replaced at runtime:
 # - `{server_path}` is the path of the file on the server;
 # - `{client_name}` is the name of the client as defined in the client
-#   configuration file
-# - `{client_relative_directory}` is the path to the file on the client, relative to
-#   the watched directory;
+#   configuration file;
+# - `{client_relative_directory}` is the path to the file on the client,
+#   relative to the watched directory;
 # - `{client_file_stem}` is the file name on the client without its extension;
-# - `{hash}` is a unique hash identifying the file. Using it as part of the output
-#   filename of your processing command guarantees its uniqueness, so that processing
-#   different files does not result in some output being overwritten.
+# - `{hash}` is a unique hash identifying the file. Using it as part of the
+#   output filename of your processing command guarantees its uniqueness, so
+#   that processing different files does not overwrite output.
 processing = [
     "cp",
     "{server_path}",
@@ -29,7 +33,7 @@ processing = [
 retry_tasks_every_secs = 60
 
 [concurrency]
-# Maximum concurrent computations of file hashes
+# Maximum concurrent computations of file hashes.
 max_hashes = 3
-# Maximum spawns of the `processing` command
+# Maximum spawns of the `processing` command.
 max_processing = 8

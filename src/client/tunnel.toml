@@ -1,9 +1,9 @@
 [server]
-# address of ssh host for tunnelling
+# Address of ssh host for tunnelling.
 ssh_host = "192.168.0.1"
-# port of ssh host
+# Port of ssh host.
 ssh_port = 22
-# authentication on ssh host
+# Authentication on ssh host.
 # The following methods are available:
 # - no authentication (e.g. if otherwise managed by network interface)
 #   { method = "none", user = "user" }
@@ -12,11 +12,11 @@ ssh_port = 22
 # - use a key via the openssh agent at `SSH_AUTH_SOCK`
 #   { method = "key", user = "user", public_key = "path/to/key.pub" }
 ssh_auth = { method = "none", user = "user" }
-# send a keepalive if no communication occurs for this duration in seconds
+# Send a keepalive if no communication occurs for this duration in seconds.
 keepalive_every_secs = 60
-# address of pipeline server as seen from ssh host
+# Address of pipeline server as seen from ssh host.
 server_addr_from_host = "127.0.0.1"
-# port of pipeline server as seen from ssh host
+# Port of pipeline server as seen from ssh host.
 server_port_from_host = 12345
-# accepted keys from ssh host
+# Accepted keys from ssh host.
 accepted_ssh_keys = []

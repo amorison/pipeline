@@ -1,13 +1,17 @@
 # Configuration file for the pipeline client.
 
+# Relative paths are resolved with respect to this file location.
+
 # Client name.
 # This is meant as a convenience to identify more easily the provenance of
 # files on the server side. This can also be accessed in the `processing`
-# command on the server side.
+# command on the server side (via the `{{client_name}}` placeholder).
 name = "client_name"
 
 # Command to copy a file to the server for processing.
-# The following placeholders are replaced:
+#
+# This is a list of strings representing the command and its arguments.
+# The following placeholders are replaced at runtime:
 # - `{{client_path}}` is the absolute path of the file on the client, see
 #   the `[watching]` section for how files are discovered;
 # - `{{server_filename}}` is the name of the file as expected by the pipeline.
@@ -33,7 +37,7 @@ copy_to_server = [
 # Location of the pipeline server, communication occurs via TCP.
 {server_conf}
 
-# Configure how file to process are discovered.
+# Configure how the files to process are discovered.
 [watching]
 # Path of the directory to watch for new files.
 directory = "./client"
@@ -45,10 +49,10 @@ last_modif_secs = 10
 # How often the client should look for new files in the watched directory, in
 # seconds.
 refresh_every_secs = 5
-# Maximum concurrent computations of file hashes
+# Maximum concurrent computations of file hashes.
 max_concurrent_hashes = 3
 # Whether to use full hashes (of the entire file contents), or shallow hashes.
 # It is recommended to use full hashes when possible for more robust data
 # integrity check. Shallow hashes should be reserved for when the pipeline has
-# to process large files for which the computation of the hash is too slow.
+# to process large files for which computating the full hash is too slow.
 full_hash = true
