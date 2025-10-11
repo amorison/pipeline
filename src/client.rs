@@ -128,7 +128,7 @@ async fn listen_to_server(
                 }
                 db.lock().await.remove(&spec.relative_path());
             }
-            Receipt::DifferentHash { spec, .. } => {
+            Receipt::DifferentHash(spec) => {
                 warn!(
                     "server does not have expected hash for {spec:?}, forgetting it in case of TOCTOU condition"
                 );

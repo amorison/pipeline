@@ -95,12 +95,11 @@ async fn processing_pipeline(
                     info!("{file:?} found");
                     Receipt::Received(file.clone())
                 } else {
-                    let received_hash = received_hash.hash().to_owned();
-                    warn!("{file:?} does not have expected hash");
-                    Receipt::DifferentHash {
-                        spec: file.clone(),
-                        received_hash,
-                    }
+                    warn!(
+                        "{file:?} does not have expected hash, got {}",
+                        received_hash.hash()
+                    );
+                    Receipt::DifferentHash(file.clone())
                 }
             }
             Err(err) => {

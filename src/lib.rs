@@ -97,10 +97,7 @@ enum Receipt {
         server_rel_path: String,
     },
     Received(FileSpec),
-    DifferentHash {
-        spec: FileSpec,
-        received_hash: String,
-    },
+    DifferentHash(FileSpec),
     Error {
         spec: FileSpec,
         server_rel_path: String,
