@@ -26,7 +26,7 @@ incoming_directory = "./server"
 processing = [
     "cp",
     "{server_path}",
-    "./server/{client_file_stem}-{hash}.tiff",
+    "./server/{client_file_stem}-{hash}.out",
 ]
 
 # Period in seconds at which failed tasks should be retried.
