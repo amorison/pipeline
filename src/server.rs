@@ -2,9 +2,17 @@ pub(crate) mod database;
 pub(crate) mod list;
 pub(crate) mod prune;
 
-use std::{fs, io, net::SocketAddr, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    fs, io,
+    net::SocketAddr,
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::Duration,
+};
 
-use crate::{FileSpec, Receipt, WriteFramedJson, hashing::FileDigest, replace_os_strings};
+use crate::{
+    FileSpec, Receipt, WriteFramedJson, assemble_path, hashing::FileDigest, replace_os_strings,
+};
 use database::{Database, ProcessStatus};
 use futures_util::{SinkExt, TryStreamExt};
 use log::{debug, info, warn};
@@ -32,8 +40,13 @@ struct Concurrency {
 }
 
 impl Config {
+    fn incoming_path<P: AsRef<Path>>(&self, relative: P) -> PathBuf {
+        assemble_path(&self.incoming_directory, relative)
+    }
+
     pub(crate) fn path_of(&self, file: &FileSpec) -> PathBuf {
-        self.incoming_directory.join(rel_path(file, self))
+        let rel_path = rel_path(file, self);
+        self.incoming_path(rel_path)
     }
 }
 
@@ -42,7 +55,7 @@ pub(crate) static DEFAULT_TOML_CONF: &str = include_str!("server/default.toml");
 fn rel_path(spec: &FileSpec, config: &Config) -> String {
     let hash = spec.hash();
     let bucket = hash[0..2].to_owned() + "/" + &hash[2..4];
-    match fs::create_dir_all(config.incoming_directory.join(&bucket)) {
+    match fs::create_dir_all(config.incoming_path(&bucket)) {
         Ok(_) => bucket + "/" + hash,
         Err(err) => {
             warn!("failed to create {bucket}: {err}");

@@ -11,7 +11,9 @@ use std::{
     sync::{Arc, LazyLock},
 };
 
-use crate::{FileSpec, ReadFramedJson, Receipt, WriteFramedJson, replace_os_strings};
+use crate::{
+    FileSpec, ReadFramedJson, Receipt, WriteFramedJson, assemble_path, replace_os_strings,
+};
 use futures_util::TryStreamExt;
 use futures_util::sink::SinkExt;
 use log::{info, warn};
@@ -98,7 +100,7 @@ struct Watching {
 
 impl Config {
     fn watched_path(&self, spec: &FileSpec) -> PathBuf {
-        self.watching.directory.join(spec.relative_path())
+        assemble_path(&self.watching.directory, spec.relative_path())
     }
 }
 
@@ -185,22 +187,23 @@ async fn send_file_to_server(
     let outcome = match &conf.copy_to_server {
         CopyToServer::Move { move_in_same_fs_to } => {
             info!("move {spec:?} to server via `fs::rename`");
-            let destination = move_in_same_fs_to.join(server_rel_path);
+            let destination = assemble_path(move_in_same_fs_to, server_rel_path);
             fs::rename(from, destination).await.into()
         }
         CopyToServer::Copy { destination } => {
             info!("copying {spec:?} to server via `fs::copy`");
-            let destination = destination.join(server_rel_path);
+            let destination = assemble_path(destination, server_rel_path);
             fs::copy(from, destination).await.map(|_| ()).into()
         }
         CopyToServer::Command(items) => {
             info!("copying {spec:?} to server with `{}`", &items[0]);
+            let rel_path = assemble_path(&server_rel_path, "");
             Command::new(&items[0])
                 .args(items[1..].iter().map(|a| {
                     replace_os_strings(
                         a,
                         [
-                            ("{server_filename}", server_rel_path.as_ref()),
+                            ("{server_filename}", rel_path.as_ref()),
                             ("{client_path}", from.as_os_str()),
                         ]
                         .into_iter(),

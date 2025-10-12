@@ -19,6 +19,14 @@ use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 
 use crate::hashing::FileDigest;
 
+/// Join paths while ensuring the use of platform-specific delimiters
+fn assemble_path<P1: AsRef<Path>, P2: AsRef<Path>>(dir: P1, relative: P2) -> PathBuf {
+    let mut path = PathBuf::with_capacity(128);
+    path.extend(dir.as_ref().components());
+    path.extend(relative.as_ref().components());
+    path
+}
+
 fn replace_os_strings<'a, I>(arg: &str, replacements: I) -> OsString
 where
     I: Iterator<Item = (&'a str, &'a OsStr)>,
@@ -76,12 +84,14 @@ impl FileSpec {
         self.sha256_digest.hash()
     }
 
-    fn relative_directory(&self) -> &Path {
-        self.path.as_ref()
+    fn relative_directory(&self) -> PathBuf {
+        assemble_path(&self.path, "")
     }
 
     fn relative_path(&self) -> PathBuf {
-        self.relative_directory().join(&self.filename)
+        let mut path = self.relative_directory();
+        path.push(&self.filename);
+        path
     }
 
     fn file_stem(&self) -> &OsStr {
@@ -156,5 +166,32 @@ mod test {
             [("{foo}", "hello".as_ref()), ("{bar}", "world".as_ref())].into_iter(),
         );
         assert_eq!(out, "hello world");
+    }
+
+    #[test]
+    fn assemble_path_subdirs() {
+        let path1 = "foo/bar";
+        let path2 = "baz/bam";
+        let out = assemble_path(path1, path2);
+        let expected: PathBuf = ["foo", "bar", "baz", "bam"].iter().collect();
+        assert_eq!(out, expected);
+    }
+
+    #[test]
+    fn assemble_path_empty_first() {
+        let path1 = "";
+        let path2 = "foo/bar";
+        let out = assemble_path(path1, path2);
+        let expected: PathBuf = ["foo", "bar"].iter().collect();
+        assert_eq!(out, expected);
+    }
+
+    #[test]
+    fn assemble_path_empty_second() {
+        let path1 = "foo/bar";
+        let path2 = "";
+        let out = assemble_path(path1, path2);
+        let expected: PathBuf = ["foo", "bar"].iter().collect();
+        assert_eq!(out, expected);
     }
 }
