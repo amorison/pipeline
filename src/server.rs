@@ -28,6 +28,7 @@ pub(crate) struct Config {
     address: String,
     incoming_directory: PathBuf,
     processing: processing::Processing,
+    auto_status_update: bool,
     retry_tasks_every_secs: u64,
     concurrency: Concurrency,
 }
@@ -179,9 +180,12 @@ async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
         }
     };
 
-    while let Err(err) = db.update_status(file.hash(), status).await {
-        warn!("failed to update status of {file:?} in db: {err}");
-        tokio::time::sleep(Duration::from_secs(1)).await;
+    if config.auto_status_update {
+        debug!("marking {file:?} as {status:?}");
+        while let Err(err) = db.update_status(file.hash(), status).await {
+            warn!("failed to update status of {file:?} in db: {err}");
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
     }
 }
 
