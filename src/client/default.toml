@@ -23,15 +23,15 @@ name = "client_name"
 # If the server filesystem is mounted locally, you can ask pipeline to copy the
 # file instead of relying on an external process. For instance, the copy in the
 # example command can be more efficiently achieved with
-# copy_to_server = {{ destination = "./server" }}
+# copy_to_server = {{ destination = "./server/bucket" }}
 #
 # Finally, if the server and the client operate on the same filesystem, you can
 # ask pipeline to merely rename the file for better performance:
-# copy_to_server = {{ move_in_same_fs_to = "./server" }}
+# copy_to_server = {{ move_in_same_fs_to = "./server/bucket" }}
 copy_to_server = [
     "cp",
     "{{client_path}}",
-    "./server/{{server_filename}}",
+    "./server/bucket/{{server_filename}}",
 ]
 
 # Location of the pipeline server, communication occurs via TCP.
