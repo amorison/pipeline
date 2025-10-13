@@ -4,10 +4,10 @@ use tokio::{io, process::Command};
 use crate::{FileSpec, replace_os_strings, server::Config};
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
-pub(super) struct Processing(Vec<String>);
+struct Step(Vec<String>);
 
-impl Processing {
-    pub(super) async fn run(&self, file: &FileSpec, config: &Config) -> io::Result<()> {
+impl Step {
+    async fn run(&self, file: &FileSpec, config: &Config) -> io::Result<()> {
         let server_path = config.path_of(file);
 
         let mut processing = Command::new(&self.0[0])
@@ -33,6 +33,30 @@ impl Processing {
             Ok(status) if status.success() => Ok(()),
             Ok(status) => Err(io::Error::other(format!("failed with status {status:?}"))),
             Err(err) => Err(err),
+        }
+    }
+}
+
+#[derive(Deserialize, Debug, PartialEq, Eq)]
+#[serde(untagged)]
+enum InnerProc {
+    One(Step),
+    List(Vec<Step>),
+}
+
+#[derive(Deserialize, Debug, PartialEq, Eq)]
+pub(super) struct Processing(InnerProc);
+
+impl Processing {
+    pub(super) async fn run(&self, file: &FileSpec, config: &Config) -> io::Result<()> {
+        match &self.0 {
+            InnerProc::One(step) => step.run(file, config).await,
+            InnerProc::List(steps) => {
+                for step in steps {
+                    step.run(file, config).await?;
+                }
+                Ok(())
+            }
         }
     }
 }
