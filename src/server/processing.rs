@@ -1,10 +1,16 @@
+use std::fs;
+
 use serde::Deserialize;
 use tokio::{io, process::Command};
 
 use crate::{FileSpec, replace_os_strings, server::Config};
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
-struct Step(Vec<String>);
+#[serde(untagged)]
+enum Step {
+    Mkdir { create_directory: String },
+    ExternalCommand(Vec<String>),
+}
 
 impl Step {
     async fn run(&self, file: &FileSpec, config: &Config) -> io::Result<()> {
@@ -18,18 +24,26 @@ impl Step {
             ("{client_file_stem}", file.file_stem()),
         ];
 
-        let mut processing = Command::new(&self.0[0])
-            .args(
-                self.0[1..]
-                    .iter()
-                    .map(|a| replace_os_strings(a, replacements.into_iter())),
-            )
-            .spawn()?;
+        match self {
+            Step::Mkdir { create_directory } => {
+                let dir = replace_os_strings(create_directory, replacements.into_iter());
+                fs::create_dir_all(dir)
+            }
+            Step::ExternalCommand(segments) => {
+                let mut processing = Command::new(&segments[0])
+                    .args(
+                        segments[1..]
+                            .iter()
+                            .map(|a| replace_os_strings(a, replacements.into_iter())),
+                    )
+                    .spawn()?;
 
-        match processing.wait().await {
-            Ok(status) if status.success() => Ok(()),
-            Ok(status) => Err(io::Error::other(format!("failed with status {status:?}"))),
-            Err(err) => Err(err),
+                match processing.wait().await {
+                    Ok(status) if status.success() => Ok(()),
+                    Ok(status) => Err(io::Error::other(format!("failed with status {status:?}"))),
+                    Err(err) => Err(err),
+                }
+            }
         }
     }
 }
