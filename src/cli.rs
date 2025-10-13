@@ -69,6 +69,19 @@ enum ServerCmd {
         #[arg(long, short)]
         force: bool,
     },
+    /// Change the status of a file in the pipeline
+    Mark {
+        /// Hash of the processed file to update
+        hash: String,
+        /// Desired status to set
+        status: MarkStatus,
+    },
+}
+
+#[derive(clap::ValueEnum, Copy, Clone)]
+pub(crate) enum MarkStatus {
+    Done,
+    Failed,
 }
 
 fn conf_from_toml<T: for<'a> Deserialize<'a>>(path: &Path) -> io::Result<T> {
@@ -121,6 +134,7 @@ async fn server_cli(cmd: ServerCmd) -> io::Result<()> {
         ServerCmd::Prune { config, force } => {
             server::prune::main(read_conf_and_chdir(&config)?, force).await
         }
+        ServerCmd::Mark { hash, status } => server::mark::main(hash, status).await,
     }
 }
 

@@ -7,7 +7,7 @@ use sqlx::{
 };
 use tabled::Tabled;
 
-use crate::{FileSpec, hashing::FileDigest};
+use crate::{FileSpec, cli::MarkStatus, hashing::FileDigest};
 
 #[derive(Copy, Clone, Type, Debug)]
 pub(super) enum ProcessStatus {
@@ -15,6 +15,15 @@ pub(super) enum ProcessStatus {
     Processing,
     Failed,
     Done,
+}
+
+impl From<MarkStatus> for ProcessStatus {
+    fn from(value: MarkStatus) -> Self {
+        match value {
+            MarkStatus::Done => ProcessStatus::Done,
+            MarkStatus::Failed => ProcessStatus::Failed,
+        }
+    }
 }
 
 #[derive(FromRow, Tabled)]
