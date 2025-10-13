@@ -12,7 +12,12 @@ incoming_directory = "./server"
 
 # Processing command to apply to incoming files.
 #
-# This is a list of strings representing the command and its arguments.
+# This can be either:
+# - an external command given as a list of strings representing the program
+#   name and its arguments;
+# - a `{ create_directory: "path" }` directive;
+# - a list where each element is either of the previous.
+#
 # The following placeholders are replaced at runtime:
 # - `{server_path}` is the path of the file on the server;
 # - `{client_name}` is the name of the client as defined in the client
@@ -24,9 +29,8 @@ incoming_directory = "./server"
 #   output filename of your processing command guarantees its uniqueness, so
 #   that processing different files does not overwrite output.
 processing = [
-    "cp",
-    "{server_path}",
-    "./server/{client_file_stem}-{hash}.out",
+    { create_directory = "./server/{client_relative_directory}" },
+    [ "cp", "{server_path}", "./server/{client_relative_directory}/{client_file_stem}.out" ],
 ]
 
 # Period in seconds at which failed tasks should be retried.
