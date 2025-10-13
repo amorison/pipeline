@@ -9,24 +9,21 @@ struct Step(Vec<String>);
 impl Step {
     async fn run(&self, file: &FileSpec, config: &Config) -> io::Result<()> {
         let server_path = config.path_of(file);
+        let rel_dir = file.relative_directory();
+        let replacements = [
+            ("{hash}", file.hash().as_ref()),
+            ("{server_path}", server_path.as_os_str()),
+            ("{client_name}", file.client.as_ref()),
+            ("{client_relative_directory}", rel_dir.as_os_str()),
+            ("{client_file_stem}", file.file_stem()),
+        ];
 
         let mut processing = Command::new(&self.0[0])
-            .args(self.0[1..].iter().map(|a| {
-                replace_os_strings(
-                    a,
-                    [
-                        ("{hash}", file.hash().as_ref()),
-                        ("{server_path}", server_path.as_os_str()),
-                        ("{client_name}", file.client.as_ref()),
-                        (
-                            "{client_relative_directory}",
-                            file.relative_directory().as_os_str(),
-                        ),
-                        ("{client_file_stem}", file.file_stem()),
-                    ]
-                    .into_iter(),
-                )
-            }))
+            .args(
+                self.0[1..]
+                    .iter()
+                    .map(|a| replace_os_strings(a, replacements.into_iter())),
+            )
             .spawn()?;
 
         match processing.wait().await {
