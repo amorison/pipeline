@@ -1,5 +1,6 @@
 pub(crate) mod database;
 pub(crate) mod list;
+mod processing;
 pub(crate) mod prune;
 
 use std::{
@@ -10,16 +11,13 @@ use std::{
     time::Duration,
 };
 
-use crate::{
-    FileSpec, Receipt, WriteFramedJson, assemble_path, hashing::FileDigest, replace_os_strings,
-};
+use crate::{FileSpec, Receipt, WriteFramedJson, assemble_path, hashing::FileDigest};
 use database::{Database, ProcessStatus};
 use futures_util::{SinkExt, TryStreamExt};
 use log::{debug, info, warn};
 use serde::Deserialize;
 use tokio::{
     net::{TcpListener, TcpStream},
-    process::Command,
     sync::{Mutex, Semaphore},
     time::MissedTickBehavior,
 };
@@ -28,7 +26,7 @@ use tokio::{
 pub(crate) struct Config {
     address: String,
     incoming_directory: PathBuf,
-    processing: Vec<String>,
+    processing: processing::Processing,
     retry_tasks_every_secs: u64,
     concurrency: Concurrency,
 }
@@ -169,39 +167,10 @@ async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
         tokio::time::sleep(Duration::from_secs(1)).await;
     }
 
-    let server_path = config.path_of(&file);
-
-    let mut processing = Command::new(&config.processing[0])
-        .args(config.processing[1..].iter().map(|a| {
-            replace_os_strings(
-                a,
-                [
-                    ("{hash}", file.hash().as_ref()),
-                    ("{server_path}", server_path.as_os_str()),
-                    ("{client_name}", file.client.as_ref()),
-                    (
-                        "{client_relative_directory}",
-                        file.relative_directory().as_os_str(),
-                    ),
-                    ("{client_file_stem}", file.file_stem()),
-                ]
-                .into_iter(),
-            )
-        }))
-        .spawn()
-        .expect("could not spawn `processing` command");
-
-    let status = match processing.wait().await {
-        Ok(status) if status.success() => {
+    let status = match config.processing.run(&file, &config).await {
+        Ok(()) => {
             info!("processing of {file:?} completed successfully");
             ProcessStatus::Done
-        }
-        Ok(status) => {
-            warn!(
-                "processing of {file:?} failed with code {:?}",
-                status.code()
-            );
-            ProcessStatus::Failed
         }
         Err(err) => {
             warn!("processing of {file:?} failed: '{err}'");
