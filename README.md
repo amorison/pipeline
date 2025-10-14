@@ -6,7 +6,7 @@ This is a command line tool to setup a processing pipeline.
 The pipeline has two components:
 
 - a `client`, watching a repository for files to process and
-  sending them to a `server;
+  sending them to a `server`;
 - a `server`, waiting for files from any number of `client`s
   and starting a processing pipeline.
 
