@@ -76,6 +76,11 @@ enum ServerCmd {
         /// Desired status to set
         status: MarkStatus,
     },
+    /// Convenience to create all buckets, e.g. to set permissions
+    CreateBuckets {
+        /// Configuration file
+        config: PathBuf,
+    },
 }
 
 #[derive(clap::ValueEnum, Copy, Clone)]
@@ -135,6 +140,9 @@ async fn server_cli(cmd: ServerCmd) -> io::Result<()> {
             server::prune::main(read_conf_and_chdir(&config)?, force).await
         }
         ServerCmd::Mark { hash, status } => server::mark::main(hash, status).await,
+        ServerCmd::CreateBuckets { config } => {
+            server::create_buckets::main(read_conf_and_chdir(&config)?).await
+        }
     }
 }
 
