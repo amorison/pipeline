@@ -9,6 +9,8 @@ use crate::{FileSpec, replace_os_strings, server::Config};
 #[serde(untagged)]
 enum Step {
     Mkdir { create_directory: String },
+    DeleteFile { delete_file: String },
+    DeleteDirectory { delete_directory: String },
     ExternalCommand(Vec<String>),
 }
 
@@ -28,6 +30,14 @@ impl Step {
             Step::Mkdir { create_directory } => {
                 let dir = replace_os_strings(create_directory, replacements.into_iter());
                 fs::create_dir_all(dir)
+            }
+            Step::DeleteFile { delete_file } => {
+                let path = replace_os_strings(delete_file, replacements.into_iter());
+                fs::remove_file(path)
+            }
+            Step::DeleteDirectory { delete_directory } => {
+                let path = replace_os_strings(delete_directory, replacements.into_iter());
+                fs::remove_dir_all(path)
             }
             Step::ExternalCommand(segments) => {
                 let mut processing = Command::new(&segments[0])

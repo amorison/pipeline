@@ -16,6 +16,8 @@ incoming_directory = "./server/bucket"
 # - an external command given as a list of strings representing the program
 #   name and its arguments;
 # - a `{ create_directory: "path" }` directive;
+# - a `{ delete_file: "path" }` directive;
+# - a `{ delete_directory: "path" }` directive;
 # - a list where each element is either of the previous.
 #
 # The following placeholders are replaced at runtime:
