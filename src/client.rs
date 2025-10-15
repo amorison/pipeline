@@ -9,6 +9,7 @@ use std::{
     process::ExitStatus,
     str::FromStr,
     sync::{Arc, LazyLock},
+    time::Duration,
 };
 
 use crate::{
@@ -241,7 +242,16 @@ pub(crate) async fn main(config: Config) -> io::Result<()> {
         Server::SshTunnel(conf) => ssh_tunnel::setup_tunnel(conf.clone()).await,
     };
 
-    let stream = TcpStream::connect(addr).await?;
+    let stream = loop {
+        let stream = TcpStream::connect(addr).await;
+        match stream {
+            Ok(stream) => break stream,
+            Err(err) => {
+                warn!("cannot connect to {addr}, will retry in 3s: {err}");
+                tokio::time::sleep(Duration::from_secs(3)).await;
+            }
+        }
+    };
     info!("connected to server at {addr}");
 
     let (from_server, to_server) = crate::framed_json_channel::<Receipt, FileSpec>(stream);
