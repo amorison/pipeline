@@ -132,15 +132,23 @@ pub(super) async fn setup_tunnel(conf: SshTunnelConfig) -> SocketAddr {
             .await
             .expect("Cannot process local client");
 
-        let ssh_channel = ssh_session
-            .channel_open_direct_tcpip(
-                conf.server_addr_from_host,
-                u32::from(conf.server_port_from_host),
-                local_addr.ip().to_string(),
-                u32::from(local_addr.port()),
-            )
-            .await
-            .expect("Cannot open SSH forwarding channel");
+        let ssh_channel = loop {
+            let channel = ssh_session
+                .channel_open_direct_tcpip(
+                    conf.server_addr_from_host.clone(),
+                    u32::from(conf.server_port_from_host),
+                    local_addr.ip().to_string(),
+                    u32::from(local_addr.port()),
+                )
+                .await;
+            match channel {
+                Ok(channel) => break channel,
+                Err(err) => {
+                    warn!("cannot open SSH forwarding channel, will retry in 3s: {err}");
+                    tokio::time::sleep(Duration::from_secs(3)).await;
+                }
+            }
+        };
 
         let mut ssh_stream = ssh_channel.into_stream();
 
