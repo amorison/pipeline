@@ -10,7 +10,12 @@ The pipeline has two components:
 - a `server`, waiting for files from any number of `client`s
   and starting a processing pipeline.
 
-Communication between the server and the clients occurs over TCP.
+Both the client and server processes are designed as long running processes
+with low CPU- and memory-footprints. They are intended to run as daemons to
+process a large number of files over hours, days, or longer durations.
+
+Quickstart
+----------
 
 You can create a configuration file and start the server with:
 
@@ -32,10 +37,6 @@ The default configuration files generated as above contain comments
 explaining each configuration option. The `--ssh-tunnel` option produces a
 configuration file that uses SSH tunnelling to connect to the server.
 
-Both the client and server processes are designed as long running processes
-with low CPU- and memory-footprints. They are intended to run as daemons to
-process a large number of files over hours, days, or longer durations.
-
 You can set the `PIPELINE_LOG` environment variable to change the verbosity of
 logs. Accepted values in order of decreasing verbosity are:
 
@@ -43,3 +44,34 @@ logs. Accepted values in order of decreasing verbosity are:
 - `info`: the default level;
 - `warn`: only show warnings;
 - `off`: disable logging.
+
+Client
+------
+
+The client configuration file contains a `watching` section where you can
+setup the path of the directory where the client will find files to process.
+
+The `copy_to_server` option in that configuration file specifies how files to
+process should be sent to the server. You can either specify a local path where
+files can be copied/moved to, or an arbitrary command to send files to a remote
+location (e.g. via `rsync`). Note that `copy_to_server` should send the files
+to process at the location specified by the `incoming_directory` option in the
+configuration file of the server.
+
+See comments in the generated configuration file for more details.
+
+Server
+------
+
+The crux of the configuration on the server side is the `processing` option,
+which describes the command(s) that should be ran for each file sent by
+client(s). These processing commands are used to mark the processing of files
+as done/failed depending on their exit status. If instead the processing step
+merely schedules the actual processing (e.g. via Slurm) and you don't want the
+scheduling command to wait for the job to complete, you can set the
+`auto_status_update` option to `false`. This ignores completely the exit status
+of the processing step. The processing can be marked as done/failed by calling
+`pipeline server mark {hash} done|failed` in the directory of the server
+configuration file (e.g. at the end of the scheduled Slurm job).
+
+See comments in the generated configuration file for more details.
