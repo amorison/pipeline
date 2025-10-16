@@ -130,7 +130,7 @@ pub(super) async fn setup_tunnel(conf: SshTunnelConfig) -> SocketAddr {
         let (mut local_socket, _) = local_listener
             .accept()
             .await
-            .expect("Cannot process local client");
+            .expect("failed to accept local listener");
 
         let ssh_channel = loop {
             let channel = ssh_session
