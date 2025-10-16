@@ -4,10 +4,8 @@ mod watch;
 use std::{
     collections::HashSet,
     io,
-    net::SocketAddr,
     path::PathBuf,
     process::ExitStatus,
-    str::FromStr,
     sync::{Arc, LazyLock},
     time::Duration,
 };
@@ -236,23 +234,28 @@ async fn send_file_to_server(
 }
 
 pub(crate) async fn main(config: Config) -> io::Result<()> {
-    let addr = match &config.server {
-        Server::Direct { address } => SocketAddr::from_str(address)
-            .unwrap_or_else(|_| panic!("Failed to parse {address} as a socket address")),
-        Server::SshTunnel(conf) => ssh_tunnel::setup_tunnel(conf.clone()).await,
-    };
-
-    let stream = loop {
-        let stream = TcpStream::connect(addr).await;
-        match stream {
-            Ok(stream) => break stream,
-            Err(err) => {
-                warn!("cannot connect to {addr}, will retry in 3s: {err}");
-                tokio::time::sleep(Duration::from_secs(3)).await;
-            }
+    let stream = match &config.server {
+        Server::Direct { address } => {
+            let stream = loop {
+                let stream = TcpStream::connect(address).await;
+                match stream {
+                    Ok(stream) => break stream,
+                    Err(err) => {
+                        warn!("cannot connect to {address}, will retry in 3s: {err}");
+                        tokio::time::sleep(Duration::from_secs(3)).await;
+                    }
+                }
+            };
+            info!("connected to server at {address}");
+            stream
+        }
+        Server::SshTunnel(conf) => {
+            let addr = ssh_tunnel::setup_tunnel(conf.clone()).await;
+            let stream = TcpStream::connect(addr).await?;
+            info!("connected to server via SSH tunnel");
+            stream
         }
     };
-    info!("connected to server at {addr}");
 
     let (from_server, to_server) = crate::framed_json_channel::<Receipt, FileSpec>(stream);
 
