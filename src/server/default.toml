@@ -8,7 +8,7 @@ address = "127.0.0.1:12345"
 # The directory where the client is expected to send the files to process.
 # The `copy_to_server` command on the client side must copy the file to
 # process to that directory with the name `{server_filename}`.
-incoming_directory = "./server/bucket"
+incoming_directory = "./server/buckets"
 
 # Processing command to apply to incoming files.
 #
