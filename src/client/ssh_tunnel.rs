@@ -126,14 +126,14 @@ pub(super) async fn setup_tunnel(
         conf.ssh_host, conf.ssh_port, conf.server_addr_from_host, conf.server_port_from_host,
     );
 
-    let ssh_client = Client::from_openssh_keys(&conf.accepted_ssh_keys);
-    let ssh_session = create_session(ssh_client, &conf).await;
-
     tokio::spawn(async move {
         let (mut local_socket, _) = local_listener
             .accept()
             .await
             .expect("failed to accept local listener");
+
+        let ssh_client = Client::from_openssh_keys(&conf.accepted_ssh_keys);
+        let ssh_session = create_session(ssh_client, &conf).await;
 
         let ssh_channel = loop {
             let channel = ssh_session
