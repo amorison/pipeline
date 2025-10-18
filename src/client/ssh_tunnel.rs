@@ -74,12 +74,9 @@ async fn create_session(client: Client, conf: &SshTunnelConfig) -> Handle<Client
             info!("authenticate as {user} with password");
             let mut pwd = rpassword::prompt_password(format!("password for {user}:"))
                 .expect("Failed to read password");
-            let auth_result = ssh_session
-                .authenticate_password(user, &pwd)
-                .await
-                .expect("Failed to authenticate");
+            let auth_result = ssh_session.authenticate_password(user, &pwd).await;
             pwd.zeroize();
-            auth_result
+            auth_result.expect("Failed to authenticate")
         }
         SshAuth::Key { user, public_key } => {
             info!("authenticate as {user} with key");
