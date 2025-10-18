@@ -7,9 +7,9 @@ use russh::{
     client::{self as ssh_client, Handle},
     keys::{PublicKey, ssh_key::public::KeyData},
 };
+use tokio::net::TcpStream;
 use tokio::sync::oneshot;
 
-use std::net::SocketAddr;
 use tokio::{fs, net::TcpListener};
 use zeroize::Zeroize;
 
@@ -109,13 +109,7 @@ async fn create_session(client: Client, conf: &SshTunnelConfig) -> Handle<Client
 }
 
 /// Setup the SSH tunnel.
-///
-/// `tx_tunnel` notifies when the tunnel is fully in place, which requires the calling code to
-/// connect a `TcpStream` to the returned socket address.
-pub(super) async fn setup_tunnel(
-    conf: SshTunnelConfig,
-    tx_tunnel: oneshot::Sender<()>,
-) -> SocketAddr {
+pub(super) async fn setup_tunnel(conf: SshTunnelConfig) -> TcpStream {
     let local_listener = TcpListener::bind("127.0.0.1:0")
         .await
         .expect("Cannot bind local port");
@@ -126,7 +120,13 @@ pub(super) async fn setup_tunnel(
         conf.ssh_host, conf.ssh_port, conf.server_addr_from_host, conf.server_port_from_host,
     );
 
+    let (tx_tunnel, rx_tunnel) = oneshot::channel();
+
     tokio::spawn(async move {
+        let stream = TcpStream::connect(local_addr)
+            .await
+            .expect("failed to connect to local socket");
+
         let (mut local_socket, _) = local_listener
             .accept()
             .await
@@ -155,12 +155,12 @@ pub(super) async fn setup_tunnel(
 
         let mut ssh_stream = ssh_channel.into_stream();
 
-        tx_tunnel.send(()).expect("rx_tunnel has been dropped");
+        tx_tunnel.send(stream).expect("rx_tunnel has been dropped");
 
         tokio::io::copy_bidirectional(&mut local_socket, &mut ssh_stream)
             .await
             .expect("Copy error between local socket and SSH stream");
     });
 
-    local_addr
+    rx_tunnel.await.expect("tx_tunnel has been dropped")
 }

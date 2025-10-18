@@ -17,12 +17,7 @@ use futures_util::TryStreamExt;
 use futures_util::sink::SinkExt;
 use log::{info, warn};
 use serde::Deserialize;
-use tokio::{
-    fs,
-    net::TcpStream,
-    process::Command,
-    sync::{Mutex, oneshot},
-};
+use tokio::{fs, net::TcpStream, process::Command, sync::Mutex};
 
 type Db = Arc<Mutex<HashSet<PathBuf>>>;
 
@@ -255,10 +250,7 @@ pub(crate) async fn main(config: Config) -> io::Result<()> {
             stream
         }
         Server::SshTunnel(conf) => {
-            let (tx_tunnel, rx_tunnel) = oneshot::channel();
-            let addr = ssh_tunnel::setup_tunnel(conf.clone(), tx_tunnel).await;
-            let stream = TcpStream::connect(addr).await?;
-            rx_tunnel.await.expect("tx_tunnel has been dropped");
+            let stream = ssh_tunnel::setup_tunnel(conf.clone()).await;
             info!("connected to server via SSH tunnel");
             stream
         }
