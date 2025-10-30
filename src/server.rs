@@ -6,7 +6,7 @@ mod processing;
 pub(crate) mod prune;
 
 use std::{
-    fs, io,
+    io,
     net::SocketAddr,
     path::{Path, PathBuf},
     sync::Arc,
@@ -28,6 +28,7 @@ use tokio::{
 pub(crate) struct Config {
     address: String,
     incoming_directory: PathBuf,
+    unix_mode: Option<u32>,
     processing: processing::Processing,
     auto_status_update: bool,
     retry_tasks_every_secs: u64,
@@ -49,6 +50,36 @@ impl Config {
         let rel_path = rel_path(file, self);
         self.incoming_path(rel_path)
     }
+
+    pub(crate) async fn create_dir_async(&self, path: impl AsRef<Path>) -> io::Result<()> {
+        use tokio::fs;
+
+        fs::create_dir_all(&path).await?;
+
+        #[cfg(unix)]
+        if let Some(mode) = self.unix_mode {
+            use std::{fs::Permissions, os::unix::fs::PermissionsExt};
+
+            fs::set_permissions(&path, Permissions::from_mode(mode)).await?;
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn create_dir_sync(&self, path: impl AsRef<Path>) -> io::Result<()> {
+        use std::fs;
+
+        fs::create_dir_all(&path)?;
+
+        #[cfg(unix)]
+        if let Some(mode) = self.unix_mode {
+            use std::{fs::Permissions, os::unix::fs::PermissionsExt};
+
+            fs::set_permissions(&path, Permissions::from_mode(mode))?;
+        }
+
+        Ok(())
+    }
 }
 
 pub(crate) static DEFAULT_TOML_CONF: &str = include_str!("server/default.toml");
@@ -56,7 +87,7 @@ pub(crate) static DEFAULT_TOML_CONF: &str = include_str!("server/default.toml");
 fn rel_path(spec: &FileSpec, config: &Config) -> String {
     let hash = spec.hash();
     let bucket = hash[0..2].to_owned() + "/" + &hash[2..4];
-    match fs::create_dir_all(config.incoming_path(&bucket)) {
+    match config.create_dir_sync(config.incoming_path(&bucket)) {
         Ok(_) => bucket + "/" + hash,
         Err(err) => {
             warn!("failed to create {bucket}: {err}");

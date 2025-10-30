@@ -10,6 +10,11 @@ address = "127.0.0.1:12345"
 # process to that directory with the name `{server_filename}`.
 incoming_directory = "./server/buckets"
 
+# Permission mode to use for "buckets" subdirectories in the
+# `incoming_directory`. This only has an effect on unix platforms. Uncomment to
+# set a value, otherwise system default is used.
+# unix_mode = 0o755
+
 # Processing command to apply to incoming files.
 #
 # This can be either:
