@@ -28,6 +28,7 @@ jobs:
       - run: cargo test
 
   build:
+    if: github.ref_type == 'tag'
     runs-on: ${{ matrix.platform.os }}
     permissions:
       contents: write
@@ -79,6 +80,5 @@ jobs:
           name: ${{ env.ASSET_NAME }}
           path: ${{ env.ASSET }}
       - uses: softprops/action-gh-release@v2
-        if: github.ref_type == 'tag'
         with:
           files: ${{ env.RELEASE_ASSET }}
