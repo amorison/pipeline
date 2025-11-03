@@ -8,15 +8,11 @@ use std::{
 
 use futures_util::SinkExt;
 use log::{debug, info};
-use tokio::{
-    fs,
-    sync::{Mutex, Semaphore},
-};
+use tokio::{fs, sync::Semaphore};
 
 use crate::{
     FileSpec,
-    client::{Config, Db},
-    framed_io::WriteFramedJson,
+    client::{Config, Db, ToServer},
 };
 
 async fn insert_path(db: &Db, path: &Path) -> bool {
@@ -45,7 +41,7 @@ async fn is_new_watched_path(root: &Path, path: &Path, db: &Db, conf: &Config) -
 async fn examine_file(
     root: PathBuf,
     path: PathBuf,
-    to_server: Arc<Mutex<WriteFramedJson<FileSpec>>>,
+    to_server: ToServer,
     db: Db,
     conf: Arc<Config>,
     semaphore: Arc<Semaphore>,
@@ -75,7 +71,7 @@ async fn examine_file(
 async fn recurse_through_files(
     root: PathBuf,
     dir: &Path,
-    to_server: Arc<Mutex<WriteFramedJson<FileSpec>>>,
+    to_server: ToServer,
     db: Db,
     conf: Arc<Config>,
 ) -> io::Result<()> {
@@ -110,11 +106,7 @@ async fn recurse_through_files(
     Ok(())
 }
 
-pub(super) async fn watch_dir(
-    to_server: Arc<Mutex<WriteFramedJson<FileSpec>>>,
-    db: Db,
-    conf: Arc<Config>,
-) -> io::Result<()> {
+pub(super) async fn watch_dir(to_server: ToServer, db: Db, conf: Arc<Config>) -> io::Result<()> {
     info!(
         "watching {:?} for {} files",
         &conf.watching.directory, conf.watching.extension

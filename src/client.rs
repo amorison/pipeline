@@ -22,6 +22,7 @@ use serde::Deserialize;
 use tokio::{fs, net::TcpStream, process::Command, sync::Mutex};
 
 type Db = Arc<Mutex<HashSet<PathBuf>>>;
+type ToServer = Arc<Mutex<WriteFramedJson<FileSpec>>>;
 
 #[derive(Deserialize, Debug)]
 pub(crate) struct Config {
@@ -107,7 +108,7 @@ impl Config {
 
 async fn listen_to_server(
     mut from_server: ReadFramedJson<Receipt>,
-    to_server: Arc<Mutex<WriteFramedJson<FileSpec>>>,
+    to_server: ToServer,
     db: Db,
     conf: Arc<Config>,
 ) -> io::Result<()> {
@@ -179,7 +180,7 @@ impl From<io::Result<()>> for CopyOutcome {
 }
 
 async fn send_file_to_server(
-    to_server: Arc<Mutex<WriteFramedJson<FileSpec>>>,
+    to_server: ToServer,
     spec: FileSpec,
     server_rel_path: String,
     conf: Arc<Config>,
