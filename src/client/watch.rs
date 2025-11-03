@@ -131,3 +131,11 @@ pub(super) async fn watch_dir(
         .await?;
     }
 }
+
+pub(crate) async fn main(config: Config) -> io::Result<()> {
+    println!("this is a dry run for testing purposes");
+    let root = config.watching.directory.canonicalize()?;
+    //let to_server =
+    //recurse_through_files(root, &root).await
+    todo!()
+}
