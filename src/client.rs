@@ -30,7 +30,7 @@ use tokio::{
 };
 
 type Db = Arc<Mutex<HashSet<PathBuf>>>;
-type ToServer = Arc<Mutex<WriteFramedJson<FileSpec, OwnedWriteHalf>>>;
+type ToServer<W> = Arc<Mutex<WriteFramedJson<FileSpec, W>>>;
 
 #[derive(Deserialize, Debug)]
 pub(crate) struct Config {
@@ -116,7 +116,7 @@ impl Config {
 
 async fn listen_to_server(
     mut from_server: ReadFramedJson<Receipt, OwnedReadHalf>,
-    to_server: ToServer,
+    to_server: ToServer<OwnedWriteHalf>,
     db: Db,
     conf: Arc<Config>,
 ) -> io::Result<()> {
@@ -188,7 +188,7 @@ impl From<io::Result<()>> for CopyOutcome {
 }
 
 async fn send_file_to_server(
-    to_server: ToServer,
+    to_server: ToServer<OwnedWriteHalf>,
     spec: FileSpec,
     server_rel_path: String,
     conf: Arc<Config>,
