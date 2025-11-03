@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     ffi::OsStr,
     io,
     path::{Path, PathBuf},
@@ -8,11 +9,17 @@ use std::{
 
 use futures_util::SinkExt;
 use log::{debug, info};
-use tokio::{fs, io::AsyncWrite, net::tcp::OwnedWriteHalf, sync::Semaphore};
+use tokio::{
+    fs,
+    io::AsyncWrite,
+    net::tcp::OwnedWriteHalf,
+    sync::{Mutex, Semaphore},
+};
 
 use crate::{
     FileSpec,
     client::{Config, Db, ToServer},
+    framed_io::framed_json_sink,
 };
 
 async fn insert_path(db: &Db, path: &Path) -> bool {
@@ -134,8 +141,10 @@ pub(super) async fn watch_dir(
 
 pub(crate) async fn main(config: Config) -> io::Result<()> {
     println!("this is a dry run for testing purposes");
+    let config = Arc::new(config);
+    let db = Arc::new(Mutex::new(HashSet::new()));
     let root = config.watching.directory.canonicalize()?;
-    //let to_server =
-    //recurse_through_files(root, &root).await
-    todo!()
+    let to_server = framed_json_sink();
+    let to_server = Arc::new(Mutex::new(to_server));
+    recurse_through_files(root.clone(), &root, to_server, db, config).await
 }

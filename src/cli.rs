@@ -37,6 +37,11 @@ enum ClientCmd {
         /// Configuration file
         config: PathBuf,
     },
+    /// Dry run over the watched directory
+    WatchedFiles {
+        /// Configuration file
+        config: PathBuf,
+    },
     /// Print configuration example
     Config {
         /// Print configuration to this file, otherwise stdout
@@ -109,6 +114,9 @@ fn read_conf_and_chdir<T: for<'a> Deserialize<'a>>(path: &Path) -> io::Result<T>
 async fn client_cli(cmd: ClientCmd) -> io::Result<()> {
     match cmd {
         ClientCmd::Start { config } => client::main(read_conf_and_chdir(&config)?).await,
+        ClientCmd::WatchedFiles { config } => {
+            client::watch::main(read_conf_and_chdir(&config)?).await
+        }
         ClientCmd::Config { path, ssh_tunnel } => {
             let content: &str = if ssh_tunnel {
                 client::TUNNEL_TOML_CONF.as_ref()

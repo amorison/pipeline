@@ -1,5 +1,5 @@
 use tokio::{
-    io::AsyncWrite,
+    io::{self, AsyncWrite, Sink},
     net::{
         TcpStream,
         tcp::{OwnedReadHalf, OwnedWriteHalf},
@@ -34,4 +34,8 @@ pub(crate) fn framed_json_channel<T, U>(
     );
     let write_half = framed_json_writer(socket_w);
     (read_half, write_half)
+}
+
+pub(crate) fn framed_json_sink<T>() -> WriteFramedJson<T, Sink> {
+    framed_json_writer(io::sink())
 }

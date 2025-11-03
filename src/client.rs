@@ -1,5 +1,5 @@
 mod ssh_tunnel;
-mod watch;
+pub(crate) mod watch;
 
 use std::{
     collections::HashSet,
