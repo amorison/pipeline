@@ -11,7 +11,9 @@ use std::{
 };
 
 use crate::{
-    FileSpec, ReadFramedJson, Receipt, WriteFramedJson, assemble_path, replace_os_strings,
+    FileSpec, Receipt, assemble_path,
+    framed_io::{ReadFramedJson, WriteFramedJson, framed_json_channel},
+    replace_os_strings,
 };
 use futures_util::TryStreamExt;
 use futures_util::sink::SinkExt;
@@ -256,7 +258,7 @@ pub(crate) async fn main(config: Config) -> io::Result<()> {
         }
     };
 
-    let (from_server, to_server) = crate::framed_json_channel::<Receipt, FileSpec>(stream);
+    let (from_server, to_server) = framed_json_channel::<Receipt, FileSpec>(stream);
 
     let to_server = Arc::new(Mutex::new(to_server));
     let db = Arc::new(Mutex::new(HashSet::new()));

@@ -14,8 +14,9 @@ use tokio::{
 };
 
 use crate::{
-    FileSpec, WriteFramedJson,
+    FileSpec,
     client::{Config, Db},
+    framed_io::WriteFramedJson,
 };
 
 async fn insert_path(db: &Db, path: &Path) -> bool {

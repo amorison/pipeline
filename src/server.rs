@@ -13,7 +13,11 @@ use std::{
     time::Duration,
 };
 
-use crate::{FileSpec, Receipt, WriteFramedJson, assemble_path, hashing::FileDigest};
+use crate::{
+    FileSpec, Receipt, assemble_path,
+    framed_io::{WriteFramedJson, framed_json_channel},
+    hashing::FileDigest,
+};
 use database::{Database, ProcessStatus};
 use futures_util::{SinkExt, TryStreamExt};
 use log::{debug, info, warn};
@@ -231,7 +235,7 @@ async fn handle_client(
 ) -> io::Result<()> {
     info!("got connection request from {addr:?}");
 
-    let (mut from_client, to_client) = crate::framed_json_channel::<FileSpec, Receipt>(stream);
+    let (mut from_client, to_client) = framed_json_channel::<FileSpec, Receipt>(stream);
     let to_client = Arc::new(Mutex::new(to_client));
 
     while let Some(msg) = from_client.try_next().await? {
