@@ -11,17 +11,17 @@ pub(crate) type ReadFramedJson<T> =
 pub(crate) type WriteFramedJson<T> =
     SymmetricallyFramed<FramedWrite<OwnedWriteHalf, LengthDelimitedCodec>, T, SymmetricalJson<T>>;
 
-pub(crate) fn framed_json_channel<R, W>(
+pub(crate) fn framed_json_channel<T, U>(
     stream: TcpStream,
-) -> (ReadFramedJson<R>, WriteFramedJson<W>) {
+) -> (ReadFramedJson<T>, WriteFramedJson<U>) {
     let (socket_r, socket_w) = stream.into_split();
     let read_half = tokio_serde::SymmetricallyFramed::new(
         FramedRead::new(socket_r, LengthDelimitedCodec::new()),
-        SymmetricalJson::<R>::default(),
+        SymmetricalJson::<T>::default(),
     );
     let write_half = tokio_serde::SymmetricallyFramed::new(
         FramedWrite::new(socket_w, LengthDelimitedCodec::new()),
-        SymmetricalJson::<W>::default(),
+        SymmetricalJson::<U>::default(),
     );
     (read_half, write_half)
 }
