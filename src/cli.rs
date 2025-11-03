@@ -37,7 +37,7 @@ enum ClientCmd {
         /// Configuration file
         config: PathBuf,
     },
-    /// Dry run over the watched directory
+    /// List files that would be processed in watched directory
     WatchedFiles {
         /// Configuration file
         config: PathBuf,
