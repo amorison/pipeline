@@ -140,11 +140,15 @@ pub(super) async fn watch_dir(
 }
 
 pub(crate) async fn main(config: Config) -> io::Result<()> {
-    println!("this is a dry run for testing purposes");
     let config = Arc::new(config);
     let db = Arc::new(Mutex::new(HashSet::new()));
     let root = config.watching.directory.canonicalize()?;
     let to_server = framed_json_sink();
     let to_server = Arc::new(Mutex::new(to_server));
-    recurse_through_files(root.clone(), &root, to_server, db, config).await
+    recurse_through_files(root.clone(), &root, to_server, db.clone(), config).await?;
+    println!(
+        "watched-files dry-run: found {} files to process",
+        db.lock().await.len()
+    );
+    Ok(())
 }
