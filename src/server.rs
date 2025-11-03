@@ -23,7 +23,7 @@ use futures_util::{SinkExt, TryStreamExt};
 use log::{debug, info, warn};
 use serde::Deserialize;
 use tokio::{
-    net::{TcpListener, TcpStream},
+    net::{TcpListener, TcpStream, tcp::OwnedWriteHalf},
     sync::{Mutex, Semaphore},
     time::MissedTickBehavior,
 };
@@ -102,7 +102,7 @@ fn rel_path(spec: &FileSpec, config: &Config) -> String {
 
 async fn processing_pipeline(
     file: FileSpec,
-    channel: Arc<Mutex<WriteFramedJson<Receipt>>>,
+    channel: Arc<Mutex<WriteFramedJson<Receipt, OwnedWriteHalf>>>,
     config: Arc<Config>,
     db: Database,
     sem_hash: Arc<Semaphore>,

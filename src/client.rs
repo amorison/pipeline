@@ -19,10 +19,18 @@ use futures_util::TryStreamExt;
 use futures_util::sink::SinkExt;
 use log::{info, warn};
 use serde::Deserialize;
-use tokio::{fs, net::TcpStream, process::Command, sync::Mutex};
+use tokio::{
+    fs,
+    net::{
+        TcpStream,
+        tcp::{OwnedReadHalf, OwnedWriteHalf},
+    },
+    process::Command,
+    sync::Mutex,
+};
 
 type Db = Arc<Mutex<HashSet<PathBuf>>>;
-type ToServer = Arc<Mutex<WriteFramedJson<FileSpec>>>;
+type ToServer = Arc<Mutex<WriteFramedJson<FileSpec, OwnedWriteHalf>>>;
 
 #[derive(Deserialize, Debug)]
 pub(crate) struct Config {
@@ -107,7 +115,7 @@ impl Config {
 }
 
 async fn listen_to_server(
-    mut from_server: ReadFramedJson<Receipt>,
+    mut from_server: ReadFramedJson<Receipt, OwnedReadHalf>,
     to_server: ToServer,
     db: Db,
     conf: Arc<Config>,
