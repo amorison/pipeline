@@ -14,6 +14,7 @@ use tokio::{
     io::AsyncWrite,
     net::tcp::OwnedWriteHalf,
     sync::{Mutex, Semaphore},
+    time::Instant,
 };
 
 use crate::{
@@ -145,10 +146,15 @@ pub(crate) async fn main(config: Config) -> io::Result<()> {
     let root = config.watching.directory.canonicalize()?;
     let to_server = framed_json_sink();
     let to_server = Arc::new(Mutex::new(to_server));
-    recurse_through_files(root.clone(), &root, to_server, db.clone(), config).await?;
+    let timer = Instant::now();
+    recurse_through_files(root.clone(), &root, to_server, db.clone(), config.clone()).await?;
+    let duration = timer.elapsed();
     println!(
-        "watched-files dry-run: found {} files to process",
-        db.lock().await.len()
+        "watched-files: found {} `{}` files to process in {:?}, took {:.3} s",
+        db.lock().await.len(),
+        config.watching.extension,
+        config.watching.directory,
+        duration.as_secs_f64(),
     );
     Ok(())
 }
