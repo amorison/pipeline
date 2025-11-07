@@ -75,3 +75,17 @@ of the processing step. The processing can be marked as done/failed by calling
 configuration file (e.g. at the end of the scheduled Slurm job).
 
 See comments in the generated configuration file for more details.
+
+Acknowledgment
+--------------
+
+This tool was initially developed for processing of images produced by an
+Apollo microscope.
+
+We acknowledge the Scottish Centre for Macromolecular Imaging (SCMI) and Kako
+Stapleton for assistance with cryo-EM experiments and access to
+instrumentation, funded by the MRC (`MC_PC_17135`, `MC_UU_00034/7`,
+`MR/X011879/1`) and SFC (`H17007`).
+
+Funding for this project was provided by the MRC (`MC_UU_00034/7`,
+`MR/X011879/1`).
