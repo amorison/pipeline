@@ -47,11 +47,7 @@ jobs:
     steps:
       - name: install `musl-tools`
         if: runner.os == 'Linux'
-        # man-db is removed to avoid getting stuck on its triggers
-        # see https://github.com/actions/runner-images/issues/5770
-        run: |
-          sudo apt remove --purge man-db
-          sudo apt install -y musl-tools
+        run: sudo apt install -y musl-tools
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@master
         with:
