@@ -15,6 +15,7 @@ pub(super) enum ProcessStatus {
     Processing,
     Failed,
     Done,
+    ToPrune,
 }
 
 impl From<MarkStatus> for ProcessStatus {
@@ -62,6 +63,7 @@ impl AsRef<str> for ProcessStatus {
             ProcessStatus::Processing => "Processing",
             ProcessStatus::Failed => "Failed",
             ProcessStatus::Done => "Done",
+            ProcessStatus::ToPrune => "ToPrune",
         }
     }
 }
