@@ -36,6 +36,7 @@ pub(crate) struct Config {
     processing: processing::Processing,
     auto_status_update: bool,
     retry_tasks_every_secs: u64,
+    prune_every_secs: u64,
     concurrency: Concurrency,
 }
 
@@ -295,6 +296,31 @@ async fn restart_failed_tasks(config: Arc<Config>, db: Database) -> io::Result<(
     }
 }
 
+async fn prune_tasks(config: Arc<Config>, db: Database) -> io::Result<()> {
+    let mut interval = tokio::time::interval(Duration::from_secs(config.prune_every_secs));
+    interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+    loop {
+        interval.tick().await;
+        debug!("looking for tasks to prune");
+        let to_prune = db.tasks_with_status(ProcessStatus::ToPrune).await;
+        match to_prune {
+            Ok(to_prune) => {
+                for spec in to_prune.into_iter().map(FileSpec::from) {
+                    debug!("pruning {spec:?}");
+                    let server_path = config.path_of(&spec);
+                    if let Err(err) = tokio::fs::remove_file(&server_path).await {
+                        warn!("error pruning {spec:?}: {err}")
+                    }
+                    if let Err(err) = db.remove(spec.hash()).await {
+                        warn!("error when removing {spec:?} from db: {err}")
+                    }
+                }
+            }
+            Err(_) => todo!(),
+        }
+    }
+}
+
 pub(crate) async fn main(config: Config) -> io::Result<()> {
     let config = Arc::new(config);
 
@@ -304,7 +330,8 @@ pub(crate) async fn main(config: Config) -> io::Result<()> {
 
     tokio::select!(
         listen = listen_to_clients(config.clone(), db.clone()) => listen,
-        retry = restart_failed_tasks(config, db) => retry,
+        retry = restart_failed_tasks(config.clone(), db.clone()) => retry,
+        prune = prune_tasks(config, db) => prune,
     )
 }
 

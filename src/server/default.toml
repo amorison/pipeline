@@ -54,6 +54,11 @@ auto_status_update = true
 # Period in seconds at which failed tasks should be retried.
 retry_tasks_every_secs = 60
 
+# Period in seconds at which tasks marked as `ToPrune` should be pruned.
+# A pruned task will be forgotten by the server and the incoming files
+# deleted.
+prune_every_secs = 120
+
 [concurrency]
 # Maximum concurrent computations of file hashes.
 max_hashes = 3
