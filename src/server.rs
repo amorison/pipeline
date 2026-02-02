@@ -17,6 +17,7 @@ use crate::{
     FileSpec, Receipt, assemble_path,
     framed_io::{WriteFramedJson, framed_json_channel},
     hashing::FileDigest,
+    server::clean::clean_tasks_with_status,
 };
 use database::{Database, ProcessStatus};
 use futures_util::{SinkExt, TryStreamExt};
@@ -318,23 +319,7 @@ async fn prune_tasks(config: Arc<Config>, db: Database) -> io::Result<()> {
     interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
     loop {
         interval.tick().await;
-        debug!("looking for tasks to prune");
-        let to_prune = db.tasks_with_status(ProcessStatus::ToPrune).await;
-        match to_prune {
-            Ok(to_prune) => {
-                for spec in to_prune.into_iter().map(FileSpec::from) {
-                    debug!("pruning {spec:?}");
-                    let server_path = config.path_of(&spec);
-                    if let Err(err) = tokio::fs::remove_file(&server_path).await {
-                        warn!("error pruning {spec:?}: {err}")
-                    }
-                    if let Err(err) = db.remove(spec.hash()).await {
-                        warn!("error when removing {spec:?} from db: {err}")
-                    }
-                }
-            }
-            Err(_) => todo!(),
-        }
+        clean_tasks_with_status(config.clone(), db.clone(), ProcessStatus::ToPrune).await;
     }
 }
 
