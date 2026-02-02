@@ -70,9 +70,9 @@ enum ServerCmd {
     Clean {
         /// Configuration file
         config: PathBuf,
-        /// Actually remove processed files
-        #[arg(long, short)]
-        force: bool,
+        /// Also remove `Done` tasks instead of only `ToPrune` ones
+        #[arg(long)]
+        done: bool,
     },
     /// Change the status of a file in the pipeline
     Mark {
@@ -145,8 +145,8 @@ async fn server_cli(cmd: ServerCmd) -> io::Result<()> {
             Ok(())
         }
         ServerCmd::List => server::list::main().await,
-        ServerCmd::Clean { config, force } => {
-            server::clean::main(read_conf_and_chdir(&config)?, force).await
+        ServerCmd::Clean { config, done } => {
+            server::clean::main(read_conf_and_chdir(&config)?, done).await
         }
         ServerCmd::Mark { hash, status } => server::mark::main(hash, status).await,
         ServerCmd::CreateBuckets { config } => {
