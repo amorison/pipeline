@@ -23,6 +23,7 @@ impl From<MarkStatus> for ProcessStatus {
         match value {
             MarkStatus::Done => ProcessStatus::Done,
             MarkStatus::Failed => ProcessStatus::Failed,
+            MarkStatus::ToPrune => ProcessStatus::ToPrune,
         }
     }
 }

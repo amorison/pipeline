@@ -92,6 +92,7 @@ enum ServerCmd {
 pub(crate) enum MarkStatus {
     Done,
     Failed,
+    ToPrune,
 }
 
 fn conf_from_toml<T: for<'a> Deserialize<'a>>(path: &Path) -> io::Result<T> {
