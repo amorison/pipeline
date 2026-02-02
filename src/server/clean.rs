@@ -16,7 +16,7 @@ pub(crate) async fn main(config: Config, force: bool) -> io::Result<()> {
         .expect("failed to create database");
 
     if !force {
-        println!("this is a dry run, use the `-f | --force` argument to actually prune files");
+        println!("this is a dry run, use the `-f | --force` argument to actually remove files");
     }
 
     let completed = db

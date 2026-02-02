@@ -66,8 +66,8 @@ enum ServerCmd {
     },
     /// List files in pipeline and their status
     List,
-    /// Prune processed files on server
-    Prune {
+    /// Remove already processed files on server
+    Clean {
         /// Configuration file
         config: PathBuf,
         /// Actually remove processed files
@@ -144,8 +144,8 @@ async fn server_cli(cmd: ServerCmd) -> io::Result<()> {
             Ok(())
         }
         ServerCmd::List => server::list::main().await,
-        ServerCmd::Prune { config, force } => {
-            server::prune::main(read_conf_and_chdir(&config)?, force).await
+        ServerCmd::Clean { config, force } => {
+            server::clean::main(read_conf_and_chdir(&config)?, force).await
         }
         ServerCmd::Mark { hash, status } => server::mark::main(hash, status).await,
         ServerCmd::CreateBuckets { config } => {
