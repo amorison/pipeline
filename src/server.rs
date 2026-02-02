@@ -319,7 +319,9 @@ async fn prune_tasks(config: Arc<Config>, db: Database) -> io::Result<()> {
     interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
     loop {
         interval.tick().await;
-        clean_tasks_with_status(config.clone(), db.clone(), ProcessStatus::ToPrune).await;
+        let summary =
+            clean_tasks_with_status(config.clone(), db.clone(), ProcessStatus::ToPrune).await;
+        debug!("{summary}");
     }
 }
 
