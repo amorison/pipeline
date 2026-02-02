@@ -53,7 +53,7 @@ async fn examine_file<W: AsyncWrite + Unpin>(
     db: Db,
     conf: Arc<Config>,
     semaphore: Arc<Semaphore>,
-) -> io::Result<()> {
+) -> io::Result<bool> {
     debug!("examining {path:?}");
     if let Ok(true) = is_new_watched_path(&root, &path, &db, &conf).await
         && let Ok(spec) = {
@@ -72,8 +72,10 @@ async fn examine_file<W: AsyncWrite + Unpin>(
     {
         debug!("found file to process {spec:?}");
         to_server.lock().await.send(spec).await?;
+        Ok(true)
+    } else {
+        Ok(false)
     }
-    Ok(())
 }
 
 async fn recurse_through_files<W: AsyncWrite + Unpin + Send + 'static>(
@@ -82,10 +84,11 @@ async fn recurse_through_files<W: AsyncWrite + Unpin + Send + 'static>(
     to_server: ToServer<W>,
     db: Db,
     conf: Arc<Config>,
-) -> io::Result<()> {
+) -> io::Result<u64> {
     let mut examined_files = Vec::with_capacity(32);
     let mut read_dir = fs::read_dir(dir).await?;
     let semaphore = Arc::new(Semaphore::new(conf.watching.max_concurrent_hashes));
+    let mut found_files = 0;
     while let Some(entry) = read_dir.next_entry().await? {
         let path = entry.path();
         if path.is_file() {
@@ -98,7 +101,7 @@ async fn recurse_through_files<W: AsyncWrite + Unpin + Send + 'static>(
                 examine_file(root, path, to_server, db, conf, semaphore).await
             }));
         } else if path.is_dir() {
-            Box::pin(recurse_through_files(
+            found_files += Box::pin(recurse_through_files(
                 root.clone(),
                 &path,
                 to_server.clone(),
@@ -109,9 +112,11 @@ async fn recurse_through_files<W: AsyncWrite + Unpin + Send + 'static>(
         }
     }
     for f in examined_files {
-        f.await??;
+        if f.await?? {
+            found_files += 1;
+        }
     }
-    Ok(())
+    Ok(found_files)
 }
 
 pub(super) async fn watch_dir(
@@ -126,10 +131,13 @@ pub(super) async fn watch_dir(
     let mut interval = tokio::time::interval(Duration::from_secs(conf.watching.refresh_every_secs));
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     let root = conf.watching.directory.canonicalize()?;
+    let mut ncycles = 0;
+    let mut nfiles = 0;
+    let mut timer = Instant::now();
     loop {
         interval.tick().await;
         debug!("going through files in {root:?}");
-        recurse_through_files(
+        nfiles += recurse_through_files(
             root.clone(),
             &root,
             to_server.clone(),
@@ -137,6 +145,18 @@ pub(super) async fn watch_dir(
             conf.clone(),
         )
         .await?;
+        if conf.watching.heartbeat_every_refreshes > 0 {
+            ncycles = (ncycles + 1) % conf.watching.heartbeat_every_refreshes;
+            if ncycles == 0 {
+                let elapsed = timer.elapsed();
+                timer = Instant::now();
+                info!(
+                    "found {nfiles} new files to process since last heartbeat ({:.0} s ago)",
+                    elapsed.as_secs_f64()
+                );
+                nfiles = 0;
+            }
+        }
     }
 }
 

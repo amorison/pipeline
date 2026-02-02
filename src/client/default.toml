@@ -56,3 +56,6 @@ max_concurrent_hashes = 3
 # integrity check. Shallow hashes should be reserved for when the pipeline has
 # to process large files for which computating the full hash is too slow.
 full_hash = true
+# Number of refreshes before logging out a hearbeat detailing how many files
+# have been found since the last hearbeat. Set to 0 to disable hearbeat.
+heartbeat_every_refreshes = 10

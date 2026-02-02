@@ -106,6 +106,7 @@ struct Watching {
     refresh_every_secs: u64,
     max_concurrent_hashes: usize,
     full_hash: bool,
+    heartbeat_every_refreshes: u32,
 }
 
 impl Config {
