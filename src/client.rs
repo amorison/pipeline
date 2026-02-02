@@ -17,7 +17,7 @@ use crate::{
 };
 use futures_util::TryStreamExt;
 use futures_util::sink::SinkExt;
-use log::{info, warn};
+use log::{debug, info, warn};
 use serde::Deserialize;
 use tokio::{
     fs,
@@ -126,11 +126,11 @@ async fn listen_to_server(
                 spec,
                 server_rel_path,
             } => {
-                info!("server awaiting {spec:?}, sending according to `copy_to_server`");
+                debug!("server awaiting {spec:?}, sending according to `copy_to_server`");
                 send_file_to_server(to_server.clone(), spec, server_rel_path, conf.clone()).await;
             }
             Receipt::Received(spec) => {
-                info!("server confirmed reception of {spec:?}");
+                debug!("server confirmed reception of {spec:?}");
                 if conf.copy_to_server.requires_cleanup() {
                     let path = conf.watched_path(&spec);
                     if let Err(err) = fs::remove_file(&path).await {
@@ -228,7 +228,7 @@ async fn send_file_to_server(
     };
     match outcome {
         CopyOutcome::Ok => {
-            info!("copy of {spec:?} completed successfully");
+            debug!("copy of {spec:?} completed successfully");
             to_server
                 .lock()
                 .await

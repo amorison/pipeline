@@ -70,7 +70,7 @@ async fn examine_file<W: AsyncWrite + Unpin>(
             .unwrap()
         }
     {
-        info!("found file to process {spec:?}");
+        debug!("found file to process {spec:?}");
         to_server.lock().await.send(spec).await?;
     }
     Ok(())

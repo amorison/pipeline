@@ -160,7 +160,7 @@ async fn processing_pipeline(
         match hash {
             Ok(received_hash) => {
                 if file.sha256_digest == received_hash {
-                    info!("{file:?} found");
+                    debug!("{file:?} found");
                     Receipt::Received(file.clone())
                 } else {
                     warn!(
@@ -210,7 +210,7 @@ async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
         tokio::time::sleep(Duration::from_secs(1)).await;
     };
     if matches!(status, ProcessStatus::Processing) {
-        info!("{file:?} is already being processed");
+        debug!("{file:?} is already being processed");
         return;
     }
 
@@ -258,7 +258,7 @@ async fn handle_client(
     let to_client = Arc::new(Mutex::new(to_client));
 
     while let Some(msg) = from_client.try_next().await? {
-        info!("received request from {addr:?}: {msg:?}");
+        debug!("received request from {addr:?}: {msg:?}");
         tokio::spawn(processing_pipeline(
             msg,
             to_client.clone(),
