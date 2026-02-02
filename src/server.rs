@@ -34,7 +34,7 @@ pub(crate) struct Config {
     incoming_directory: PathBuf,
     unix_mode: Option<u32>,
     processing: processing::Processing,
-    auto_status_update: bool,
+    status_after_processing: StatusAfterProcessing,
     retry_tasks_every_secs: u64,
     prune_every_secs: u64,
     concurrency: Concurrency,
@@ -44,6 +44,23 @@ pub(crate) struct Config {
 struct Concurrency {
     max_hashes: usize,
     max_processing: usize,
+}
+
+#[derive(Deserialize, Debug, PartialEq, Eq, Copy, Clone)]
+enum StatusAfterProcessing {
+    Done,
+    ToPrune,
+    Manual,
+}
+
+impl From<StatusAfterProcessing> for Option<ProcessStatus> {
+    fn from(value: StatusAfterProcessing) -> Self {
+        match value {
+            StatusAfterProcessing::Done => Some(ProcessStatus::Done),
+            StatusAfterProcessing::ToPrune => Some(ProcessStatus::ToPrune),
+            StatusAfterProcessing::Manual => None,
+        }
+    }
 }
 
 impl Config {
@@ -209,15 +226,15 @@ async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
     let status = match config.processing.run(&file, &config).await {
         Ok(()) => {
             info!("processing of {file:?} completed successfully");
-            ProcessStatus::Done
+            config.status_after_processing.into()
         }
         Err(err) => {
             warn!("processing of {file:?} failed: '{err}'");
-            ProcessStatus::Failed
+            Some(ProcessStatus::Failed)
         }
     };
 
-    if config.auto_status_update {
+    if let Some(status) = status {
         debug!("marking {file:?} as {status:?}");
         while let Err(err) = db.update_status(file.hash(), status).await {
             warn!("failed to update status of {file:?} in db: {err}");

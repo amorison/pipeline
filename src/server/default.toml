@@ -40,16 +40,19 @@ processing = [
     [ "cp", "{server_path}", "./server/{client_relative_directory}/{client_file_stem}.out" ],
 ]
 
-# Whether a job is marked as done/failed based on `processing` exit status.
+# What status to give a job if the `processing` step was successful.
 #
-# When this option is set to false, the job is still internally marked as being
-# processed after the `processing` command has been executed. The job has to be
-# manually marked as done/failed by calling
-# `pipeline server mark {hash} done|failed`
-# Setting this option to `false` is intended for cases when the `processing`
-# command above doesn't actually perform the desire processing but instead
-# schedules it for execution (e.g. via a SLURM queue).
-auto_status_update = true
+# This can be either:
+# - `"Done"`: mark the job as completed;
+# - `"ToPrune"`: mark the job as completed and for pruning;
+# - `"Manual"`: leave the job marked as being processed.
+#
+# The `"Manual"` option is intended for cases when the `processing` command
+# above doesn't actually perform the desire processing but instead schedules it
+# for execution (e.g. via a SLURM queue). In this scenario, the job has to be
+# manually marked as done, failed or to-prune by calling
+# `pipeline server mark {hash} done|failed|to-prune`
+status_after_processing = "Done"
 
 # Period in seconds at which failed tasks should be retried.
 retry_tasks_every_secs = 60
