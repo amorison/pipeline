@@ -30,7 +30,7 @@ pub(super) async fn clean_tasks_with_status(
                 }
             }
         }
-        Err(_) => todo!(),
+        Err(err) => warn!("error when querying db: {err}"),
     }
 }
 
