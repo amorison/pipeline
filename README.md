@@ -65,14 +65,8 @@ Server
 
 The crux of the configuration on the server side is the `processing` option,
 which describes the command(s) that should be ran for each file sent by
-client(s). These processing commands are used to mark the processing of files
-as done/failed depending on their exit status. If instead the processing step
-merely schedules the actual processing (e.g. via Slurm) and you don't want the
-scheduling command to wait for the job to complete, you can set the
-`auto_status_update` option to `false`. This ignores completely the exit status
-of the processing step. The processing can be marked as done/failed by calling
-`pipeline server mark {hash} done|failed` in the directory of the server
-configuration file (e.g. at the end of the scheduled Slurm job).
+client(s). The `status_after_processing` option controls how the status of
+each tasks changes when the processing step is successful.
 
 See comments in the generated configuration file for more details.
 
