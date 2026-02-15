@@ -9,6 +9,10 @@ start-server:
 start-client:
     cargo run -- client start dummy-folder/client.toml
 
+# start client once
+start-client-once:
+    cargo run -- client start-once dummy-folder/client.toml
+
 # setup tests
 setup:
     rm -rf dummy-folder/

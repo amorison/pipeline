@@ -123,6 +123,7 @@ pub(super) async fn watch_dir(
     to_server: ToServer<OwnedWriteHalf>,
     db: Db,
     conf: Arc<Config>,
+    once: bool,
 ) -> io::Result<()> {
     info!(
         "watching {:?} for {} files",
@@ -137,7 +138,7 @@ pub(super) async fn watch_dir(
     loop {
         interval.tick().await;
         debug!("going through files in {root:?}");
-        nfiles += recurse_through_files(
+        let nfiles_in_cycle = recurse_through_files(
             root.clone(),
             &root,
             to_server.clone(),
@@ -145,6 +146,7 @@ pub(super) async fn watch_dir(
             conf.clone(),
         )
         .await?;
+        nfiles += nfiles_in_cycle;
         if conf.watching.heartbeat_every_refreshes > 0 {
             ncycles = (ncycles + 1) % conf.watching.heartbeat_every_refreshes;
             if ncycles == 0 {
@@ -156,6 +158,11 @@ pub(super) async fn watch_dir(
                 );
                 nfiles = 0;
             }
+        }
+        if once && nfiles_in_cycle == 0 && db.lock().await.is_empty() {
+            info!("stopping as in `start-once` mode and no new file has been found");
+            // one last heartbeat? Maybe should refactor heartbeat via a ServerState
+            break Ok(());
         }
     }
 }

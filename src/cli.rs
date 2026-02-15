@@ -37,6 +37,11 @@ enum ClientCmd {
         /// Configuration file
         config: PathBuf,
     },
+    /// Start pipeline client, stopping as soon as no new files are found
+    StartOnce {
+        /// Configuration file
+        config: PathBuf,
+    },
     /// List files that would be processed in watched directory
     WatchedFiles {
         /// Configuration file
@@ -114,7 +119,8 @@ fn read_conf_and_chdir<T: for<'a> Deserialize<'a>>(path: &Path) -> io::Result<T>
 
 async fn client_cli(cmd: ClientCmd) -> io::Result<()> {
     match cmd {
-        ClientCmd::Start { config } => client::main(read_conf_and_chdir(&config)?).await,
+        ClientCmd::Start { config } => client::main(read_conf_and_chdir(&config)?, false).await,
+        ClientCmd::StartOnce { config } => client::main(read_conf_and_chdir(&config)?, true).await,
         ClientCmd::WatchedFiles { config } => {
             client::watch::main(read_conf_and_chdir(&config)?).await
         }

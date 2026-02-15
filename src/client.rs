@@ -245,7 +245,7 @@ async fn send_file_to_server(
     }
 }
 
-pub(crate) async fn main(config: Config) -> io::Result<()> {
+pub(crate) async fn main(config: Config, once: bool) -> io::Result<()> {
     let stream = match &config.server {
         Server::Direct { address } => {
             let stream = loop {
@@ -276,7 +276,7 @@ pub(crate) async fn main(config: Config) -> io::Result<()> {
 
     tokio::select!(
         handle = tokio::spawn(listen_to_server(from_server, to_server.clone(), db.clone(), config.clone())) => handle.unwrap(),
-        res = watch::watch_dir(to_server, db, config) => res,
+        res = watch::watch_dir(to_server, db, config, once) => res,
     )
 }
 
