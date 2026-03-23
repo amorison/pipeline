@@ -9,6 +9,8 @@ use tabled::Tabled;
 
 use crate::{FileSpec, cli::MarkStatus, hashing::FileDigest};
 
+static DB_FILENAME: &'static str = ".pipeline_server.db";
+
 #[derive(Copy, Clone, Type, Debug)]
 pub(super) enum ProcessStatus {
     AwaitFromClient,
@@ -79,7 +81,7 @@ impl Database {
             .acquire_slow_threshold(Duration::from_secs(5))
             .connect_with(
                 SqliteConnectOptions::new()
-                    .filename(".pipeline_server.db")
+                    .filename(DB_FILENAME)
                     .log_slow_statements(log::LevelFilter::Warn, Duration::from_secs(5))
                     .create_if_missing(true),
             )
@@ -172,7 +174,7 @@ impl DatabaseReadOnly {
     pub(super) async fn new() -> Result<Self> {
         let pool = SqlitePool::connect_with(
             SqliteConnectOptions::new()
-                .filename(".pipeline_server.db")
+                .filename(DB_FILENAME)
                 .read_only(true),
         )
         .await?;
