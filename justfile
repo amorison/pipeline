@@ -14,21 +14,23 @@ start-client-once:
     cargo run -- client start-once dummy-folder/client.toml
 
 # setup tests
-setup:
+setup nfiles="2":
     rm -rf dummy-folder/
     mkdir -p {{serverdir}} {{clientdir}}
     echo '*' > dummy-folder/.gitignore
-    just create-rand-file
-    just create-rand-file
+    just create-rand-file {{nfiles}}
     cargo run -- client config dummy-folder/client.toml
     cargo run -- server config dummy-folder/server.toml
 
 # create random file on client
-create-rand-file:
+create-rand-file nfiles:
     #!/bin/bash
+    for i in {1..{{nfiles}}}
+    do
     dirname={{clientdir}}/$(openssl rand -hex 2)/$(openssl rand -hex 2)
     mkdir -p $dirname
     openssl rand -out $dirname/foo-$(openssl rand -hex 4).dat 128
+    done
 
 # prepare a new release
 release version:
