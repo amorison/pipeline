@@ -1,10 +1,10 @@
 use tabled::{Table, settings::Style};
 use tokio::io;
 
-use crate::server::database::Database;
+use crate::server::database::DatabaseReadOnly;
 
 pub(crate) async fn main() -> io::Result<()> {
-    let db = Database::read_only().await.unwrap();
+    let db = DatabaseReadOnly::new().await.unwrap();
     let content = db.content().await.unwrap();
     let mut table = Table::new(&content);
     table.with(

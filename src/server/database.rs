@@ -73,17 +73,6 @@ impl AsRef<str> for ProcessStatus {
 pub(super) struct Database(Pool<Sqlite>);
 
 impl Database {
-    pub(super) async fn read_only() -> Result<Self> {
-        let pool = SqlitePool::connect_with(
-            SqliteConnectOptions::new()
-                .filename(".pipeline_server.db")
-                .read_only(true),
-        )
-        .await?;
-
-        Ok(Self(pool))
-    }
-
     pub(super) async fn create_if_missing() -> Result<Self> {
         let pool = SqlitePoolOptions::new()
             .max_connections(1)
@@ -111,12 +100,6 @@ impl Database {
         .await?;
 
         Ok(Self(pool))
-    }
-
-    pub(super) async fn content(&self) -> Result<Vec<FileInPipeline>> {
-        sqlx::query_as("SELECT * FROM files_in_pipeline;")
-            .fetch_all(&self.0)
-            .await
     }
 
     pub(super) async fn tasks_with_status(
@@ -179,5 +162,27 @@ impl Database {
             .execute(&self.0)
             .await?;
         Ok(())
+    }
+}
+
+#[derive(Clone)]
+pub(super) struct DatabaseReadOnly(Pool<Sqlite>);
+
+impl DatabaseReadOnly {
+    pub(super) async fn new() -> Result<Self> {
+        let pool = SqlitePool::connect_with(
+            SqliteConnectOptions::new()
+                .filename(".pipeline_server.db")
+                .read_only(true),
+        )
+        .await?;
+
+        Ok(Self(pool))
+    }
+
+    pub(super) async fn content(&self) -> Result<Vec<FileInPipeline>> {
+        sqlx::query_as("SELECT * FROM files_in_pipeline;")
+            .fetch_all(&self.0)
+            .await
     }
 }
