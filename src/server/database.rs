@@ -172,6 +172,7 @@ impl DatabaseReadOnly {
         let pool = SqlitePool::connect_with(
             SqliteConnectOptions::new()
                 .filename(DB_FILENAME)
+                .journal_mode(SqliteJournalMode::Wal)
                 .read_only(true),
         )
         .await?;
