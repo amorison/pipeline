@@ -185,8 +185,8 @@ pub(super) async fn watch_dir(
         .await?;
         heart_beat.refresh(nfiles_in_cycle);
         if once && nfiles_in_cycle == 0 && db.lock().await.is_empty() {
+            heart_beat.emit();
             info!("stopping as in `start-once` mode and no new file has been found");
-            // one last heartbeat? Maybe should refactor heartbeat via a ServerState
             break Ok(());
         }
     }
