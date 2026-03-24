@@ -66,7 +66,7 @@ Server
 The crux of the configuration on the server side is the `processing` option,
 which describes the command(s) that should be ran for each file sent by
 client(s). The `status_after_processing` option controls how the status of
-each tasks changes when the processing step is successful.
+each task changes when the processing step is successful.
 
 See comments in the generated configuration file for more details.
 
