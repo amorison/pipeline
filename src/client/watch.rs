@@ -119,6 +119,41 @@ async fn recurse_through_files<W: AsyncWrite + Unpin + Send + 'static>(
     Ok(found_files)
 }
 
+struct HeartBeat {
+    nfiles: u64,
+    ncycles: u32,
+    emit_every_ncycles: u32,
+    timer: Instant,
+}
+
+impl HeartBeat {
+    fn new(emit_every_ncycles: u32) -> Self {
+        Self {
+            nfiles: 0,
+            ncycles: 0,
+            emit_every_ncycles,
+            timer: Instant::now(),
+        }
+    }
+
+    fn refresh(&mut self, n_new_files: u64) {
+        self.nfiles += n_new_files;
+        if self.emit_every_ncycles > 0 {
+            self.ncycles = (self.ncycles + 1) % self.emit_every_ncycles;
+            if self.ncycles == 0 {
+                let elapsed = self.timer.elapsed();
+                self.timer = Instant::now();
+                info!(
+                    "found {} new files to process since last heartbeat ({:.0} s ago)",
+                    self.nfiles,
+                    elapsed.as_secs_f64(),
+                );
+                self.nfiles = 0;
+            }
+        }
+    }
+}
+
 pub(super) async fn watch_dir(
     to_server: ToServer<OwnedWriteHalf>,
     db: Db,
@@ -132,9 +167,7 @@ pub(super) async fn watch_dir(
     let mut interval = tokio::time::interval(Duration::from_secs(conf.watching.refresh_every_secs));
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     let root = conf.watching.directory.canonicalize()?;
-    let mut ncycles = 0;
-    let mut nfiles = 0;
-    let mut timer = Instant::now();
+    let mut heart_beat = HeartBeat::new(conf.watching.heartbeat_every_refreshes);
     loop {
         interval.tick().await;
         debug!("going through files in {root:?}");
@@ -146,19 +179,7 @@ pub(super) async fn watch_dir(
             conf.clone(),
         )
         .await?;
-        nfiles += nfiles_in_cycle;
-        if conf.watching.heartbeat_every_refreshes > 0 {
-            ncycles = (ncycles + 1) % conf.watching.heartbeat_every_refreshes;
-            if ncycles == 0 {
-                let elapsed = timer.elapsed();
-                timer = Instant::now();
-                info!(
-                    "found {nfiles} new files to process since last heartbeat ({:.0} s ago)",
-                    elapsed.as_secs_f64()
-                );
-                nfiles = 0;
-            }
-        }
+        heart_beat.refresh(nfiles_in_cycle);
         if once && nfiles_in_cycle == 0 && db.lock().await.is_empty() {
             info!("stopping as in `start-once` mode and no new file has been found");
             // one last heartbeat? Maybe should refactor heartbeat via a ServerState
