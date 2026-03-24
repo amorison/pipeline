@@ -18,6 +18,7 @@ use crate::{
 use futures_util::TryStreamExt;
 use futures_util::sink::SinkExt;
 use log::{debug, info, warn};
+use russh::keys::PublicKey;
 use serde::Deserialize;
 use tokio::{
     fs,
@@ -73,7 +74,7 @@ struct SshTunnelConfig {
     keepalive_every_secs: u64,
     server_addr_from_host: String,
     server_port_from_host: u16,
-    accepted_ssh_keys: Vec<String>,
+    accepted_ssh_keys: Vec<PublicKey>,
 }
 
 #[derive(Deserialize, Debug, Clone)]

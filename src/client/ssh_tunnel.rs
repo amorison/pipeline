@@ -20,15 +20,8 @@ struct Client {
 }
 
 impl Client {
-    fn from_openssh_keys<S: AsRef<str>>(keys: impl IntoIterator<Item = S>) -> Client {
-        let accepted_keys = keys
-            .into_iter()
-            .map(|key_str| {
-                PublicKey::from_openssh(key_str.as_ref())
-                    .expect("Failed to parse public key")
-                    .into()
-            })
-            .collect();
+    fn from_openssh_keys(keys: &[PublicKey]) -> Client {
+        let accepted_keys = keys.into_iter().map(KeyData::from).collect();
         Client { accepted_keys }
     }
 }
