@@ -141,16 +141,20 @@ impl HeartBeat {
         if self.emit_every_ncycles > 0 {
             self.ncycles = (self.ncycles + 1) % self.emit_every_ncycles;
             if self.ncycles == 0 {
-                let elapsed = self.timer.elapsed();
-                self.timer = Instant::now();
-                info!(
-                    "found {} new files to process since last heartbeat ({:.0} s ago)",
-                    self.nfiles,
-                    elapsed.as_secs_f64(),
-                );
-                self.nfiles = 0;
+                self.emit();
             }
         }
+    }
+
+    fn emit(&mut self) {
+        let elapsed = self.timer.elapsed();
+        self.timer = Instant::now();
+        info!(
+            "found {} new files to process since last heartbeat ({:.0} s ago)",
+            self.nfiles,
+            elapsed.as_secs_f64(),
+        );
+        self.nfiles = 0;
     }
 }
 
