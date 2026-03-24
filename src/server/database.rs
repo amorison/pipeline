@@ -1,7 +1,7 @@
 use sqlx::{
     Pool, Result, Sqlite, SqlitePool,
     prelude::{FromRow, Type},
-    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
+    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
 };
 use tabled::Tabled;
 
@@ -79,6 +79,7 @@ impl Database {
             .connect_with(
                 SqliteConnectOptions::new()
                     .filename(DB_FILENAME)
+                    .journal_mode(SqliteJournalMode::Wal)
                     .create_if_missing(true),
             )
             .await?;
