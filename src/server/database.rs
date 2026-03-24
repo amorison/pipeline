@@ -1,7 +1,5 @@
-use std::time::Duration;
-
 use sqlx::{
-    ConnectOptions, Pool, Result, Sqlite, SqlitePool,
+    Pool, Result, Sqlite, SqlitePool,
     prelude::{FromRow, Type},
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
 };
@@ -78,11 +76,9 @@ impl Database {
     pub(super) async fn create_if_missing() -> Result<Self> {
         let pool = SqlitePoolOptions::new()
             .max_connections(1)
-            .acquire_slow_threshold(Duration::from_secs(5))
             .connect_with(
                 SqliteConnectOptions::new()
                     .filename(DB_FILENAME)
-                    .log_slow_statements(log::LevelFilter::Warn, Duration::from_secs(5))
                     .create_if_missing(true),
             )
             .await?;
