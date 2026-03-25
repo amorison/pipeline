@@ -121,26 +121,26 @@ async fn recurse_through_files<W: AsyncWrite + Unpin + Send + 'static>(
 
 struct HeartBeat {
     nfiles: u64,
-    ncycles: u32,
-    emit_every_ncycles: u32,
+    nrefreshes: u32,
+    emit_every_refreshes: u32,
     timer: Instant,
 }
 
 impl HeartBeat {
-    fn new(emit_every_ncycles: u32) -> Self {
+    fn new(emit_every_refreshes: u32) -> Self {
         Self {
             nfiles: 0,
-            ncycles: 0,
-            emit_every_ncycles,
+            nrefreshes: 0,
+            emit_every_refreshes,
             timer: Instant::now(),
         }
     }
 
     fn refresh(&mut self, n_new_files: u64) {
         self.nfiles += n_new_files;
-        if self.emit_every_ncycles > 0 {
-            self.ncycles = (self.ncycles + 1) % self.emit_every_ncycles;
-            if self.ncycles == 0 {
+        if self.emit_every_refreshes > 0 {
+            self.nrefreshes = (self.nrefreshes + 1) % self.emit_every_refreshes;
+            if self.nrefreshes == 0 {
                 self.emit();
             }
         }
@@ -175,7 +175,7 @@ pub(super) async fn watch_dir(
     loop {
         interval.tick().await;
         debug!("going through files in {root:?}");
-        let nfiles_in_cycle = recurse_through_files(
+        let nfiles = recurse_through_files(
             root.clone(),
             &root,
             to_server.clone(),
@@ -183,8 +183,8 @@ pub(super) async fn watch_dir(
             conf.clone(),
         )
         .await?;
-        heart_beat.refresh(nfiles_in_cycle);
-        if once && nfiles_in_cycle == 0 && db.lock().await.is_empty() {
+        heart_beat.refresh(nfiles);
+        if once && nfiles == 0 && db.lock().await.is_empty() {
             heart_beat.emit();
             info!("stopping as in `start-once` mode and no new file has been found");
             break Ok(());
