@@ -48,9 +48,9 @@ processing = [
 # - `"Manual"`: leave the job marked as being processed.
 #
 # The `"Manual"` option is intended for cases when the `processing` command
-# above doesn't actually perform the desire processing but instead schedules it
-# for execution (e.g. via a SLURM queue). In this scenario, the job has to be
-# manually marked as done, failed or to-prune by calling
+# above doesn't actually perform the desired processing but instead schedules
+# it for execution (e.g. via a SLURM queue). In this scenario, the job has to
+# be manually marked as done, failed or to-prune by calling
 # `pipeline server mark {hash} done|failed|to-prune`
 status_after_processing = "Done"
 
