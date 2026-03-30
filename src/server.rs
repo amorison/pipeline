@@ -39,6 +39,7 @@ pub(crate) struct Config {
     retry_tasks_every_secs: u64,
     prune_every_secs: u64,
     concurrency: Concurrency,
+    database: DatabaseConfig,
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
@@ -52,6 +53,11 @@ enum StatusAfterProcessing {
     Done,
     ToPrune,
     Manual,
+}
+
+#[derive(Deserialize, Debug, PartialEq, Eq)]
+struct DatabaseConfig {
+    wal: bool,
 }
 
 impl From<StatusAfterProcessing> for Option<ProcessStatus> {
@@ -328,7 +334,7 @@ async fn prune_tasks(config: Arc<Config>, db: Database) -> io::Result<()> {
 pub(crate) async fn main(config: Config) -> io::Result<()> {
     let config = Arc::new(config);
 
-    let db = Database::create_if_missing()
+    let db = Database::create_if_missing(config.database.wal)
         .await
         .expect("failed to create database");
 

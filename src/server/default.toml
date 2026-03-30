@@ -67,3 +67,9 @@ prune_every_secs = 120
 max_hashes = 3
 # Maximum spawns of the `processing` command.
 max_processing = 8
+
+[database]
+# Enable WAL journaling mode, see https://www.sqlite.org/wal.html
+# in particular regarding filesystem-related restrictions. If false,
+# the "truncate" mode is used.
+wal = false

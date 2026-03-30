@@ -81,6 +81,8 @@ enum ServerCmd {
     },
     /// Change the status of a file in the pipeline
     Mark {
+        /// Configuration file
+        config: PathBuf,
         /// Hash of the processed file to update
         hash: String,
         /// Desired status to set
@@ -154,7 +156,14 @@ async fn server_cli(cmd: ServerCmd) -> io::Result<()> {
         ServerCmd::Clean { config, done } => {
             server::clean::main(read_conf_and_chdir(&config)?, done).await
         }
-        ServerCmd::Mark { hash, status } => server::mark::main(hash, status).await,
+        ServerCmd::Mark {
+            config,
+            hash,
+            status,
+        } => {
+            let config = read_conf_and_chdir(&config)?;
+            server::mark::main(config, hash, status).await
+        }
         ServerCmd::CreateBuckets { config } => {
             server::create_buckets::main(read_conf_and_chdir(&config)?).await
         }

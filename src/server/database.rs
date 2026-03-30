@@ -73,13 +73,18 @@ impl AsRef<str> for ProcessStatus {
 pub(super) struct Database(Pool<Sqlite>);
 
 impl Database {
-    pub(super) async fn create_if_missing() -> Result<Self> {
+    pub(super) async fn create_if_missing(wal: bool) -> Result<Self> {
+        let journal_mode = if wal {
+            SqliteJournalMode::Wal
+        } else {
+            SqliteJournalMode::Truncate
+        };
         let pool = SqlitePoolOptions::new()
             .max_connections(1)
             .connect_with(
                 SqliteConnectOptions::new()
                     .filename(DB_FILENAME)
-                    .journal_mode(SqliteJournalMode::Wal)
+                    .journal_mode(journal_mode)
                     .create_if_missing(true),
             )
             .await?;

@@ -87,7 +87,7 @@ pub(super) async fn clean_tasks_with_status(
 }
 
 pub(crate) async fn main(config: Config, include_done: bool) -> io::Result<()> {
-    let db = Database::create_if_missing()
+    let db = Database::create_if_missing(config.database.wal)
         .await
         .expect("failed to create database");
 
