@@ -23,7 +23,7 @@ jobs:
           - os: macos-latest
           - os: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@1.88
       - run: cargo build
       - run: cargo test
@@ -48,7 +48,7 @@ jobs:
       - name: install `musl-tools`
         if: runner.os == 'Linux'
         run: sudo apt install -y musl-tools
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
@@ -70,6 +70,6 @@ jobs:
             (cd $target_folder && tar -czf $archive_name $target_name)
           fi
           echo "RELEASE_ASSET=$target_folder/$archive_name" >> $GITHUB_ENV
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: ${{ env.RELEASE_ASSET }}
