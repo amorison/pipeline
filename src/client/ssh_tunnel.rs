@@ -77,17 +77,14 @@ async fn create_session(client: Client, conf: &SshTunnelConfig) -> Handle<Client
                 .await
                 .unwrap_or_else(|_| panic!("Failed to read public key {public_key:?}"));
             let public_key = PublicKey::from_openssh(&public_key).expect("Failed to parse key");
-            let agent;
-            #[cfg(unix)]
-            {
-                agent = AgentClient::connect_env().await;
-            }
-            #[cfg(windows)]
-            {
-                let pipe = std::env::var("SSH_AUTH_SOCK")
-                    .unwrap_or_else(|_| r"\\.\pipe\openssh-ssh-agent".to_owned());
-                agent = AgentClient::connect_named_pipe(&pipe).await;
-            }
+            let agent = cfg_select! {
+                unix => { AgentClient::connect_env().await }
+                windows => {{
+                    let pipe = std::env::var("SSH_AUTH_SOCK")
+                        .unwrap_or_else(|_| r"\\.\pipe\openssh-ssh-agent".to_owned());
+                    AgentClient::connect_named_pipe(&pipe).await
+                }}
+            };
             let mut agent = agent.expect("Failed to connect to SSH agent");
             ssh_session
                 .authenticate_publickey_with(user, public_key, None, &mut agent)
