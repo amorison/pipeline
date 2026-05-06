@@ -3,7 +3,7 @@ name = "pipeline"
 version = "0.8.0"
 license = "MIT"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.95"
 
 [dependencies]
 bstr = "1.12.1"
