@@ -4,6 +4,7 @@ use std::{
     path::Path,
 };
 
+use digest_io::IoWrapper;
 use log::debug;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -39,9 +40,11 @@ impl FileDigest {
         }
         let mut hasher = Sha256::new();
         let mut file = std::fs::File::open(path)?;
-        if full {
+        let hash = if full {
+            let mut hasher = IoWrapper(hasher);
             let mut reader = io::BufReader::new(file);
             io::copy(&mut reader, &mut hasher)?;
+            hasher.0.finalize()
         } else {
             hasher.update(name);
             hasher.update(size.to_le_bytes());
@@ -53,8 +56,9 @@ impl FileDigest {
                 idx += read_bytes;
             }
             hasher.update(data);
-        }
-        let hash = hex::encode(hasher.finalize());
+            hasher.finalize()
+        };
+        let hash = hex::encode(hash);
         if full {
             Ok(Self::Full(hash))
         } else {
