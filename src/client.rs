@@ -124,7 +124,6 @@ impl WatchingGroup {
             .path()
             .extension()
             .is_some_and(|ext| *ext == *self.extension)
-            && entry.file_name().to_str().is_some()
             && let Ok(last_modif) = entry.metadata()?.modified()?.elapsed()
             && last_modif > Duration::from_secs(self.last_modif_secs)
         {
