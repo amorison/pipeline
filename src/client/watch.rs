@@ -44,8 +44,7 @@ async fn file_info_if_new(
                 .path()
                 .strip_prefix(root)
                 .expect("root should be parent of path");
-            let new_file = insert_path(db, relative_path).await;
-            if new_file {
+            if insert_path(db, relative_path).await {
                 let info = FileInfo {
                     processing: group.processing.clone(),
                     full_hash: group.full_hash,
