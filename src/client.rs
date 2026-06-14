@@ -14,15 +14,16 @@ use std::{
 use crate::{
     FileSpec, Receipt, assemble_path,
     framed_io::{ReadFramedJson, WriteFramedJson, framed_json_channel},
-    replace_os_strings,
+    handshake, replace_os_strings,
 };
 use futures_util::TryStreamExt;
 use futures_util::sink::SinkExt;
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 use russh::keys::PublicKey;
 use serde::Deserialize;
 use tokio::{
     fs,
+    io::AsyncWriteExt,
     net::{
         TcpStream,
         tcp::{OwnedReadHalf, OwnedWriteHalf},
@@ -134,6 +135,15 @@ impl WatchingGroup {
 impl Config {
     fn watched_path(&self, spec: &FileSpec) -> PathBuf {
         assemble_path(&self.watching.directory, spec.relative_path())
+    }
+
+    pub(crate) fn processing_groups(&self) -> Vec<String> {
+        self.watching
+            .groups
+            .iter()
+            .map(|g| &g.processing)
+            .cloned()
+            .collect()
     }
 }
 
@@ -268,7 +278,7 @@ async fn send_file_to_server(
 }
 
 pub(crate) async fn main(config: Config, once: bool) -> io::Result<()> {
-    let stream = match &config.server {
+    let mut stream = match &config.server {
         Server::Direct { address } => {
             let stream = loop {
                 let stream = TcpStream::connect(address).await;
@@ -289,6 +299,21 @@ pub(crate) async fn main(config: Config, once: bool) -> io::Result<()> {
             stream
         }
     };
+
+    match handshake::client_side(&mut stream, &config).await.unwrap() {
+        handshake::HandshakeOutcome::Success => {
+            info!("handshake with server was successful");
+        }
+        handshake::HandshakeOutcome::Denied => {
+            error!("handshake with server was denied");
+            _ = stream.shutdown().await;
+            return Ok(());
+        }
+        handshake::HandshakeOutcome::ClosedConnection => {
+            info!("server closed connection");
+            return Ok(());
+        }
+    }
 
     let (from_server, to_server) = framed_json_channel::<Receipt, FileSpec>(stream);
 

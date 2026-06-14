@@ -1,6 +1,7 @@
 pub mod cli;
 mod client;
 mod framed_io;
+mod handshake;
 mod hashing;
 mod server;
 

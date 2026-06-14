@@ -2,7 +2,7 @@ use tokio::{
     io::{self, AsyncWrite, Sink},
     net::{
         TcpStream,
-        tcp::{OwnedReadHalf, OwnedWriteHalf},
+        tcp::{OwnedReadHalf, OwnedWriteHalf, ReadHalf, WriteHalf},
     },
 };
 use tokio_serde::{SymmetricallyFramed, formats::SymmetricalJson};
@@ -28,6 +28,21 @@ pub(crate) fn framed_json_channel<T, U>(
     WriteFramedJson<U, OwnedWriteHalf>,
 ) {
     let (socket_r, socket_w) = stream.into_split();
+    let read_half = tokio_serde::SymmetricallyFramed::new(
+        FramedRead::new(socket_r, LengthDelimitedCodec::new()),
+        SymmetricalJson::<T>::default(),
+    );
+    let write_half = framed_json_writer(socket_w);
+    (read_half, write_half)
+}
+
+pub(crate) fn borrowed_json_channel<'a, T, U>(
+    stream: &'a mut TcpStream,
+) -> (
+    ReadFramedJson<T, ReadHalf<'a>>,
+    WriteFramedJson<U, WriteHalf<'a>>,
+) {
+    let (socket_r, socket_w) = stream.split();
     let read_half = tokio_serde::SymmetricallyFramed::new(
         FramedRead::new(socket_r, LengthDelimitedCodec::new()),
         SymmetricalJson::<T>::default(),

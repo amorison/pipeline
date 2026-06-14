@@ -17,14 +17,16 @@ use std::{
 use crate::{
     FileSpec, Receipt, assemble_path,
     framed_io::{WriteFramedJson, framed_json_channel},
+    handshake,
     hashing::FileDigest,
     server::clean::clean_tasks_with_status,
 };
 use database::{Database, ProcessStatus};
 use futures_util::{SinkExt, TryStreamExt};
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 use serde::Deserialize;
 use tokio::{
+    io::AsyncWriteExt,
     net::{TcpListener, TcpStream, tcp::OwnedWriteHalf},
     sync::{Mutex, Semaphore},
     time::MissedTickBehavior,
@@ -114,6 +116,10 @@ impl Config {
         }
 
         Ok(())
+    }
+
+    pub(crate) fn is_proc_group(&self, name: &str) -> bool {
+        self.processing.contains_key(name)
     }
 }
 
@@ -237,9 +243,12 @@ async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
     }
 
     let Some(proc_group) = config.processing.get(&file.processing) else {
-        // FIXME: when establishing a connection with client, verify that all processing
+        // When establishing a connection with client, the handshake verifies that all processing
         // groups in the client config are known by the server so this is unreachable.
-        warn!("processing of {file:?} failed: unknown processing group");
+        error!(
+            "unknown group name {}. This should have been caught during the handshake, please raise a bug report",
+            file.processing,
+        );
         return;
     };
 
@@ -264,7 +273,7 @@ async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
 }
 
 async fn handle_client(
-    stream: TcpStream,
+    mut stream: TcpStream,
     addr: SocketAddr,
     config: Arc<Config>,
     db: Database,
@@ -272,6 +281,21 @@ async fn handle_client(
     sem_proc: Arc<Semaphore>,
 ) -> io::Result<()> {
     info!("got connection request from {addr:?}");
+
+    match handshake::server_side(&mut stream, &config).await.unwrap() {
+        handshake::HandshakeOutcome::Success => {
+            info!("handshake with {addr:?} was successful");
+        }
+        handshake::HandshakeOutcome::Denied => {
+            warn!("handshake with {addr:?} was not successful, closing connection");
+            _ = stream.shutdown().await;
+            return Ok(());
+        }
+        handshake::HandshakeOutcome::ClosedConnection => {
+            info!("client {addr:?} closed connection");
+            return Ok(());
+        }
+    }
 
     let (mut from_client, to_client) = framed_json_channel::<FileSpec, Receipt>(stream);
     let to_client = Arc::new(Mutex::new(to_client));
