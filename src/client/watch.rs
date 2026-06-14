@@ -70,13 +70,15 @@ async fn examine_file<W: AsyncWrite + Unpin>(
     debug!("examining {:?}", entry.path());
     if let Ok(Some(info)) = group_info_if_new(&root, &entry, &db, &conf).await
         && let Ok(spec) = {
-            let client_name = conf.name.clone();
-            let root = root.clone();
-            let path = entry.into_path();
             let permit = semaphore.acquire_owned().await.unwrap();
             tokio::task::spawn_blocking(move || {
-                let spec =
-                    FileSpec::new(client_name, &root, &path, info.processing, info.full_hash);
+                let spec = FileSpec::new(
+                    conf.name.clone(),
+                    &root,
+                    entry.path(),
+                    info.processing,
+                    info.full_hash,
+                );
                 drop(permit);
                 spec
             })
