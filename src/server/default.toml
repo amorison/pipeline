@@ -15,6 +15,32 @@ incoming_directory = "./server/buckets"
 # set a value, otherwise system default is used.
 # unix_mode = 0o755
 
+# Period in seconds at which failed tasks should be retried.
+retry_tasks_every_secs = 60
+
+# Period in seconds at which tasks marked as `ToPrune` should be pruned.
+# A pruned task will be forgotten by the server and the incoming files
+# deleted.
+prune_every_secs = 120
+
+[concurrency]
+# Maximum concurrent computations of file hashes.
+max_hashes = 3
+# Maximum spawns of the `processing` command.
+max_processing = 8
+
+[database]
+# Enable WAL journaling mode, see https://www.sqlite.org/wal.html
+# in particular regarding filesystem-related restrictions. If false,
+# the "truncate" mode is used.
+wal = false
+
+# Define the "main" processing group.
+#
+# You can define as many groups as you want. To define a group with
+# name `group_name`, append a section `[processing.group_name]` to
+# this configuration file.
+[processing.main]
 # Processing command to apply to incoming files.
 #
 # This can be either:
@@ -53,23 +79,3 @@ processing = [
 # be manually marked as done, failed or to-prune by calling
 # `pipeline server mark {hash} done|failed|to-prune`
 status_after_processing = "Done"
-
-# Period in seconds at which failed tasks should be retried.
-retry_tasks_every_secs = 60
-
-# Period in seconds at which tasks marked as `ToPrune` should be pruned.
-# A pruned task will be forgotten by the server and the incoming files
-# deleted.
-prune_every_secs = 120
-
-[concurrency]
-# Maximum concurrent computations of file hashes.
-max_hashes = 3
-# Maximum spawns of the `processing` command.
-max_processing = 8
-
-[database]
-# Enable WAL journaling mode, see https://www.sqlite.org/wal.html
-# in particular regarding filesystem-related restrictions. If false,
-# the "truncate" mode is used.
-wal = false

@@ -33,6 +33,7 @@ async fn insert_path(db: &Db, path: &Path) -> bool {
 }
 
 struct GroupInfo {
+    processing: String,
     full_hash: bool,
 }
 
@@ -47,6 +48,7 @@ async fn group_info_if_new(
             let new_file = insert_path(db, path.strip_prefix(root).unwrap()).await;
             if new_file {
                 let info = GroupInfo {
+                    processing: group.processing.clone(),
                     full_hash: group.full_hash,
                 };
                 return Ok(Some(info));
@@ -73,7 +75,8 @@ async fn examine_file<W: AsyncWrite + Unpin>(
             let path = path.clone();
             let permit = semaphore.acquire_owned().await.unwrap();
             tokio::task::spawn_blocking(move || {
-                let spec = FileSpec::new(client_name, &root, &path, info.full_hash);
+                let spec =
+                    FileSpec::new(client_name, &root, &path, info.processing, info.full_hash);
                 drop(permit);
                 spec
             })

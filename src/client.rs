@@ -112,6 +112,7 @@ struct Watching {
 #[derive(Deserialize, Debug)]
 struct WatchingGroup {
     extension: String,
+    processing: String,
     last_modif_secs: u64,
     full_hash: bool,
 }

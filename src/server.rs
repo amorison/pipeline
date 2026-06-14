@@ -6,6 +6,7 @@ pub(crate) mod mark;
 mod processing;
 
 use std::{
+    collections::HashMap,
     io,
     net::SocketAddr,
     path::{Path, PathBuf},
@@ -34,12 +35,17 @@ pub(crate) struct Config {
     address: String,
     incoming_directory: PathBuf,
     unix_mode: Option<u32>,
-    processing: processing::Processing,
-    status_after_processing: StatusAfterProcessing,
+    processing: HashMap<String, ProcessingGroup>,
     retry_tasks_every_secs: u64,
     prune_every_secs: u64,
     concurrency: Concurrency,
     database: DatabaseConfig,
+}
+
+#[derive(Deserialize, Debug, PartialEq, Eq)]
+struct ProcessingGroup {
+    processing: processing::Processing,
+    status_after_processing: StatusAfterProcessing,
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
@@ -230,10 +236,17 @@ async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
         tokio::time::sleep(Duration::from_secs(1)).await;
     }
 
-    let status = match config.processing.run(&file, &config).await {
+    let Some(proc_group) = config.processing.get(&file.processing) else {
+        // FIXME: when establishing a connection with client, verify that all processing
+        // groups in the client config are known by the server so this is unreachable.
+        warn!("processing of {file:?} failed: unknown processing group");
+        return;
+    };
+
+    let status = match proc_group.processing.run(&file, &config).await {
         Ok(()) => {
             info!("processing of {file:?} completed successfully");
-            config.status_after_processing.into()
+            proc_group.status_after_processing.into()
         }
         Err(err) => {
             warn!("processing of {file:?} failed: '{err}'");

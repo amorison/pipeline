@@ -39,6 +39,7 @@ struct FileSpec {
     client: String,
     path: String,
     filename: String,
+    processing: String,
     sha256_digest: FileDigest,
 }
 
@@ -47,6 +48,7 @@ impl FileSpec {
         client: S,
         root: &Path,
         client_path: &Path,
+        processing: String,
         full_hash: bool,
     ) -> io::Result<Self> {
         let client = client.into();
@@ -71,6 +73,7 @@ impl FileSpec {
             client,
             path,
             filename,
+            processing,
             sha256_digest,
         })
     }

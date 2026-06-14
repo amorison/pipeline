@@ -53,6 +53,8 @@ heartbeat_every_refreshes = 10
 [[watching.groups]]
 # The extension of files to process.
 extension = "dat"
+# Which processing group should be run for these files (see server configuration).
+processing = "main"
 # How long ago the last modification should be (in seconds) for the file to be
 # considered ready for processing.
 last_modif_secs = 10

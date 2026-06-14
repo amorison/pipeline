@@ -36,6 +36,7 @@ pub(super) struct FileInPipeline {
     date_utc: String,
     path: String,
     file_name: String,
+    processing: String,
     #[tabled(format = "{:?}")]
     status: ProcessStatus,
 }
@@ -52,6 +53,7 @@ impl From<FileInPipeline> for FileSpec {
             client: value.client,
             path: value.path,
             filename: value.file_name,
+            processing: value.processing,
             sha256_digest,
         }
     }
