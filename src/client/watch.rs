@@ -40,7 +40,11 @@ async fn file_info_if_new(
 ) -> io::Result<Option<FileInfo>> {
     for group in &conf.watching.groups {
         if group.validate(entry)? {
-            let new_file = insert_path(db, entry.path().strip_prefix(root).unwrap()).await;
+            let relative_path = entry
+                .path()
+                .strip_prefix(root)
+                .expect("root should be parent of path");
+            let new_file = insert_path(db, relative_path).await;
             if new_file {
                 let info = FileInfo {
                     processing: group.processing.clone(),
