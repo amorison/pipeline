@@ -21,7 +21,7 @@ struct Client {
 
 impl Client {
     fn from_openssh_keys(keys: &[PublicKey]) -> Client {
-        let accepted_keys = keys.into_iter().map(KeyData::from).collect();
+        let accepted_keys = keys.iter().map(KeyData::from).collect();
         Client { accepted_keys }
     }
 }

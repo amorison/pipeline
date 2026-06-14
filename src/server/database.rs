@@ -7,7 +7,7 @@ use tabled::Tabled;
 
 use crate::{FileSpec, cli::MarkStatus, hashing::FileDigest};
 
-static DB_FILENAME: &'static str = ".pipeline_server.db";
+static DB_FILENAME: &str = ".pipeline_server.db";
 
 #[derive(Copy, Clone, Type, Debug)]
 pub(super) enum ProcessStatus {
