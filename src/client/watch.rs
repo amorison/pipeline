@@ -39,13 +39,13 @@ struct GroupInfo {
 
 async fn group_info_if_new(
     root: &Path,
-    path: &Path,
+    entry: &DirEntry,
     db: &Db,
     conf: &Config,
 ) -> io::Result<Option<GroupInfo>> {
     for group in &conf.watching.groups {
-        if group.validate(path)? {
-            let new_file = insert_path(db, path.strip_prefix(root).unwrap()).await;
+        if group.validate(entry)? {
+            let new_file = insert_path(db, entry.path().strip_prefix(root).unwrap()).await;
             if new_file {
                 let info = GroupInfo {
                     processing: group.processing.clone(),
@@ -61,18 +61,18 @@ async fn group_info_if_new(
 
 async fn examine_file<W: AsyncWrite + Unpin>(
     root: PathBuf,
-    path: PathBuf,
+    entry: DirEntry,
     to_server: ToServer<W>,
     db: Db,
     conf: Arc<Config>,
     semaphore: Arc<Semaphore>,
 ) -> io::Result<bool> {
-    debug!("examining {path:?}");
-    if let Ok(Some(info)) = group_info_if_new(&root, &path, &db, &conf).await
+    debug!("examining {:?}", entry.path());
+    if let Ok(Some(info)) = group_info_if_new(&root, &entry, &db, &conf).await
         && let Ok(spec) = {
             let client_name = conf.name.clone();
             let root = root.clone();
-            let path = path.clone();
+            let path = entry.into_path();
             let permit = semaphore.acquire_owned().await.unwrap();
             tokio::task::spawn_blocking(move || {
                 let spec =
@@ -105,14 +105,14 @@ async fn recurse_through_files<W: AsyncWrite + Unpin + Send + 'static>(
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file());
-    for path in walker.map(DirEntry::into_path) {
+    for entry in walker {
         let root = root.clone();
         let to_server = to_server.clone();
         let db = db.clone();
         let conf = conf.clone();
         let semaphore = semaphore.clone();
         examined_files.push(tokio::spawn(async move {
-            examine_file(root, path, to_server, db, conf, semaphore).await
+            examine_file(root, entry, to_server, db, conf, semaphore).await
         }));
         yield_now().await;
     }

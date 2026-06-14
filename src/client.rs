@@ -3,9 +3,8 @@ pub(crate) mod watch;
 
 use std::{
     collections::HashSet,
-    ffi::OsStr,
     io,
-    path::{Path, PathBuf},
+    path::PathBuf,
     process::ExitStatus,
     sync::{Arc, LazyLock},
     time::Duration,
@@ -31,6 +30,7 @@ use tokio::{
     process::Command,
     sync::Mutex,
 };
+use walkdir::DirEntry;
 
 type Db = Arc<Mutex<HashSet<PathBuf>>>;
 type ToServer<W> = Arc<Mutex<WriteFramedJson<FileSpec, W>>>;
@@ -119,10 +119,13 @@ struct WatchingGroup {
 }
 
 impl WatchingGroup {
-    fn validate(&self, path: &Path) -> io::Result<bool> {
-        if path.extension().is_some_and(|ext| *ext == *self.extension)
-            && path.file_name().map(OsStr::to_str).is_some()
-            && let Ok(last_modif) = path.metadata()?.modified()?.elapsed()
+    fn validate(&self, entry: &DirEntry) -> io::Result<bool> {
+        if entry
+            .path()
+            .extension()
+            .is_some_and(|ext| *ext == *self.extension)
+            && entry.file_name().to_str().is_some()
+            && let Ok(last_modif) = entry.metadata()?.modified()?.elapsed()
             && last_modif > Duration::from_secs(self.last_modif_secs)
         {
             Ok(true)
