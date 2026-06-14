@@ -45,39 +45,20 @@ struct FileSpec {
 }
 
 struct FileInfo {
+    filename: String,
+    relpath: String,
     processing: String,
     full_hash: bool,
 }
 
 impl FileSpec {
-    fn new<S: Into<String>>(
-        client: S,
-        root: &Path,
-        client_path: &Path,
-        info: FileInfo,
-    ) -> io::Result<Self> {
+    fn new<S: Into<String>>(client: S, client_path: &Path, info: FileInfo) -> io::Result<Self> {
         let client = client.into();
         let sha256_digest = FileDigest::new(client_path, info.full_hash)?;
-        let filename = client_path
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_owned();
-        let segments: Vec<String> = client_path
-            .parent()
-            .unwrap()
-            .strip_prefix(root)
-            .expect("root should be parent of path")
-            .iter()
-            .map(|segment| segment.to_str().unwrap())
-            .map(ToOwned::to_owned)
-            .collect();
-        let path = segments.join("/");
         Ok(FileSpec {
             client,
-            path,
-            filename,
+            path: info.relpath,
+            filename: info.filename,
             processing: info.processing,
             sha256_digest,
         })

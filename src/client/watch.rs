@@ -44,8 +44,28 @@ async fn file_info_if_new(
                 .path()
                 .strip_prefix(root)
                 .expect("root should be parent of path");
+
+            // Extra sanitation: check that the file name and relative
+            // path can be represented as UTF8 strings, to safely send
+            // over the network.
+            let Some(filename) = entry.file_name().to_str() else {
+                return Ok(None);
+            };
+
+            let segments: Option<Vec<&str>> = relative_path
+                .parent()
+                .unwrap()
+                .iter()
+                .map(|segment| segment.to_str())
+                .collect();
+            let Some(segments) = segments else {
+                return Ok(None);
+            };
+
             if insert_path(db, relative_path).await {
                 let info = FileInfo {
+                    filename: filename.to_owned(),
+                    relpath: segments.join("/"),
                     processing: group.processing.clone(),
                     full_hash: group.full_hash,
                 };
@@ -70,7 +90,7 @@ async fn examine_file<W: AsyncWrite + Unpin>(
         && let Ok(spec) = {
             let permit = semaphore.acquire_owned().await.unwrap();
             tokio::task::spawn_blocking(move || {
-                let spec = FileSpec::new(conf.name.clone(), &root, entry.path(), info);
+                let spec = FileSpec::new(conf.name.clone(), entry.path(), info);
                 drop(permit);
                 spec
             })
