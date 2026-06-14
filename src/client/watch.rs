@@ -1,6 +1,5 @@
 use std::{
     collections::HashSet,
-    ffi::OsStr,
     io,
     path::{Path, PathBuf},
     sync::Arc,
@@ -33,18 +32,29 @@ async fn insert_path(db: &Db, path: &Path) -> bool {
     }
 }
 
-async fn is_new_watched_path(root: &Path, path: &Path, db: &Db, conf: &Config) -> io::Result<bool> {
-    if path
-        .extension()
-        .is_some_and(|ext| *ext == *conf.watching.extension)
-        && path.file_name().map(OsStr::to_str).is_some()
-        && let Ok(last_modif) = path.metadata()?.modified()?.elapsed()
-        && last_modif > Duration::from_secs(conf.watching.last_modif_secs)
-    {
-        Ok(insert_path(db, path.strip_prefix(root).unwrap()).await)
-    } else {
-        Ok(false)
+struct GroupInfo {
+    full_hash: bool,
+}
+
+async fn group_info_if_new(
+    root: &Path,
+    path: &Path,
+    db: &Db,
+    conf: &Config,
+) -> io::Result<Option<GroupInfo>> {
+    for group in &conf.watching.groups {
+        if group.validate(path)? {
+            let new_file = insert_path(db, path.strip_prefix(root).unwrap()).await;
+            if new_file {
+                let info = GroupInfo {
+                    full_hash: group.full_hash,
+                };
+                return Ok(Some(info));
+            }
+            return Ok(None);
+        }
     }
+    Ok(None)
 }
 
 async fn examine_file<W: AsyncWrite + Unpin>(
@@ -56,14 +66,14 @@ async fn examine_file<W: AsyncWrite + Unpin>(
     semaphore: Arc<Semaphore>,
 ) -> io::Result<bool> {
     debug!("examining {path:?}");
-    if let Ok(true) = is_new_watched_path(&root, &path, &db, &conf).await
+    if let Ok(Some(info)) = group_info_if_new(&root, &path, &db, &conf).await
         && let Ok(spec) = {
             let client_name = conf.name.clone();
             let root = root.clone();
             let path = path.clone();
             let permit = semaphore.acquire_owned().await.unwrap();
             tokio::task::spawn_blocking(move || {
-                let spec = FileSpec::new(client_name, &root, &path, conf.watching.full_hash);
+                let spec = FileSpec::new(client_name, &root, &path, info.full_hash);
                 drop(permit);
                 spec
             })
@@ -156,10 +166,7 @@ pub(super) async fn watch_dir(
     conf: Arc<Config>,
     once: bool,
 ) -> io::Result<()> {
-    info!(
-        "watching {:?} for {} files",
-        &conf.watching.directory, conf.watching.extension
-    );
+    info!("watching {:?} for new files", &conf.watching.directory);
     let mut interval = tokio::time::interval(Duration::from_secs(conf.watching.refresh_every_secs));
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     let root = conf.watching.directory.canonicalize()?;
@@ -189,9 +196,8 @@ pub(crate) async fn main(config: Config) -> io::Result<()> {
     recurse_through_files(root, to_server, db.clone(), config.clone()).await?;
     let duration = timer.elapsed();
     println!(
-        "watched-files: found {} `{}` files to process in {:?}, took {:.3} s",
+        "watched-files: found {} files to process in {:?}, took {:.3} s",
         db.lock().await.len(),
-        config.watching.extension,
         config.watching.directory,
         duration.as_secs_f64(),
     );

@@ -41,21 +41,23 @@ copy_to_server = [
 [watching]
 # Path of the directory to watch for new files.
 directory = "./client"
-# The extension of files to process.
-extension = "dat"
-# How long ago the last modification should be (in seconds) for the file to be
-# considered ready for processing.
-last_modif_secs = 10
 # How often the client should look for new files in the watched directory, in
 # seconds.
 refresh_every_secs = 5
 # Maximum concurrent computations of file hashes.
 max_concurrent_hashes = 3
+# Number of refreshes before logging out a heartbeat detailing how many files
+# have been found since the last heartbeat. Set to 0 to disable heartbeat.
+heartbeat_every_refreshes = 10
+
+[[watching.groups]]
+# The extension of files to process.
+extension = "dat"
+# How long ago the last modification should be (in seconds) for the file to be
+# considered ready for processing.
+last_modif_secs = 10
 # Whether to use full hashes (of the entire file contents), or shallow hashes.
 # It is recommended to use full hashes when possible for more robust data
 # integrity check. Shallow hashes should be reserved for when the pipeline has
 # to process large files for which computating the full hash is too slow.
 full_hash = true
-# Number of refreshes before logging out a heartbeat detailing how many files
-# have been found since the last heartbeat. Set to 0 to disable heartbeat.
-heartbeat_every_refreshes = 10

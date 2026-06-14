@@ -3,8 +3,9 @@ pub(crate) mod watch;
 
 use std::{
     collections::HashSet,
+    ffi::OsStr,
     io,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::ExitStatus,
     sync::{Arc, LazyLock},
     time::Duration,
@@ -102,12 +103,31 @@ pub(crate) static TUNNEL_TOML_CONF: LazyLock<String> = LazyLock::new(|| {
 #[derive(Deserialize, Debug)]
 struct Watching {
     directory: PathBuf,
-    extension: String,
-    last_modif_secs: u64,
     refresh_every_secs: u64,
     max_concurrent_hashes: usize,
-    full_hash: bool,
     heartbeat_every_refreshes: u32,
+    groups: Vec<WatchingGroup>,
+}
+
+#[derive(Deserialize, Debug)]
+struct WatchingGroup {
+    extension: String,
+    last_modif_secs: u64,
+    full_hash: bool,
+}
+
+impl WatchingGroup {
+    fn validate(&self, path: &Path) -> io::Result<bool> {
+        if path.extension().is_some_and(|ext| *ext == *self.extension)
+            && path.file_name().map(OsStr::to_str).is_some()
+            && let Ok(last_modif) = path.metadata()?.modified()?.elapsed()
+            && last_modif > Duration::from_secs(self.last_modif_secs)
+        {
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
 }
 
 impl Config {
