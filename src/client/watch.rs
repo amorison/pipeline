@@ -13,6 +13,7 @@ use tokio::{
     io::AsyncWrite,
     net::tcp::OwnedWriteHalf,
     sync::{Mutex, Semaphore},
+    task::yield_now,
     time::Instant,
 };
 use walkdir::{DirEntry, WalkDir};
@@ -100,6 +101,7 @@ async fn recurse_through_files<W: AsyncWrite + Unpin + Send + 'static>(
         examined_files.push(tokio::spawn(async move {
             examine_file(root, path, to_server, db, conf, semaphore).await
         }));
+        yield_now().await;
     }
     for f in examined_files {
         if f.await?? {
