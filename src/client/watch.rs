@@ -67,13 +67,7 @@ async fn examine_file<W: AsyncWrite + Unpin>(
         && let Ok(spec) = {
             let permit = semaphore.acquire_owned().await.unwrap();
             tokio::task::spawn_blocking(move || {
-                let spec = FileSpec::new(
-                    conf.name.clone(),
-                    &root,
-                    entry.path(),
-                    info.processing,
-                    info.full_hash,
-                );
+                let spec = FileSpec::new(conf.name.clone(), &root, entry.path(), info);
                 drop(permit);
                 spec
             })

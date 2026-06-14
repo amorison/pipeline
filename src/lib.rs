@@ -54,11 +54,10 @@ impl FileSpec {
         client: S,
         root: &Path,
         client_path: &Path,
-        processing: String,
-        full_hash: bool,
+        info: FileInfo,
     ) -> io::Result<Self> {
         let client = client.into();
-        let sha256_digest = FileDigest::new(client_path, full_hash)?;
+        let sha256_digest = FileDigest::new(client_path, info.full_hash)?;
         let filename = client_path
             .file_name()
             .unwrap()
@@ -79,7 +78,7 @@ impl FileSpec {
             client,
             path,
             filename,
-            processing,
+            processing: info.processing,
             sha256_digest,
         })
     }
