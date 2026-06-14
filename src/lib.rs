@@ -44,6 +44,11 @@ struct FileSpec {
     sha256_digest: FileDigest,
 }
 
+struct FileInfo {
+    processing: String,
+    full_hash: bool,
+}
+
 impl FileSpec {
     fn new<S: Into<String>>(
         client: S,

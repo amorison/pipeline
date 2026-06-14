@@ -18,7 +18,7 @@ use tokio::{
 use walkdir::{DirEntry, WalkDir};
 
 use crate::{
-    FileSpec,
+    FileInfo, FileSpec,
     client::{Config, Db, ToServer},
     framed_io::framed_json_sink,
 };
@@ -32,22 +32,17 @@ async fn insert_path(db: &Db, path: &Path) -> bool {
     }
 }
 
-struct GroupInfo {
-    processing: String,
-    full_hash: bool,
-}
-
-async fn group_info_if_new(
+async fn file_info_if_new(
     root: &Path,
     entry: &DirEntry,
     db: &Db,
     conf: &Config,
-) -> io::Result<Option<GroupInfo>> {
+) -> io::Result<Option<FileInfo>> {
     for group in &conf.watching.groups {
         if group.validate(entry)? {
             let new_file = insert_path(db, entry.path().strip_prefix(root).unwrap()).await;
             if new_file {
-                let info = GroupInfo {
+                let info = FileInfo {
                     processing: group.processing.clone(),
                     full_hash: group.full_hash,
                 };
@@ -68,7 +63,7 @@ async fn examine_file<W: AsyncWrite + Unpin>(
     semaphore: Arc<Semaphore>,
 ) -> io::Result<bool> {
     debug!("examining {:?}", entry.path());
-    if let Ok(Some(info)) = group_info_if_new(&root, &entry, &db, &conf).await
+    if let Ok(Some(info)) = file_info_if_new(&root, &entry, &db, &conf).await
         && let Ok(spec) = {
             let permit = semaphore.acquire_owned().await.unwrap();
             tokio::task::spawn_blocking(move || {
