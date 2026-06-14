@@ -10,12 +10,12 @@ use std::{
 use futures_util::SinkExt;
 use log::{debug, info};
 use tokio::{
-    fs,
     io::AsyncWrite,
     net::tcp::OwnedWriteHalf,
     sync::{Mutex, Semaphore},
     time::Instant,
 };
+use walkdir::{DirEntry, WalkDir};
 
 use crate::{
     FileSpec,
@@ -80,36 +80,26 @@ async fn examine_file<W: AsyncWrite + Unpin>(
 
 async fn recurse_through_files<W: AsyncWrite + Unpin + Send + 'static>(
     root: PathBuf,
-    dir: &Path,
     to_server: ToServer<W>,
     db: Db,
     conf: Arc<Config>,
 ) -> io::Result<u64> {
     let mut examined_files = Vec::with_capacity(32);
-    let mut read_dir = fs::read_dir(dir).await?;
     let semaphore = Arc::new(Semaphore::new(conf.watching.max_concurrent_hashes));
     let mut found_files = 0;
-    while let Some(entry) = read_dir.next_entry().await? {
-        let path = entry.path();
-        if path.is_file() {
-            let root = root.clone();
-            let to_server = to_server.clone();
-            let db = db.clone();
-            let conf = conf.clone();
-            let semaphore = semaphore.clone();
-            examined_files.push(tokio::spawn(async move {
-                examine_file(root, path, to_server, db, conf, semaphore).await
-            }));
-        } else if path.is_dir() {
-            found_files += Box::pin(recurse_through_files(
-                root.clone(),
-                &path,
-                to_server.clone(),
-                db.clone(),
-                conf.clone(),
-            ))
-            .await?;
-        }
+    let walker = WalkDir::new(&root)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file());
+    for path in walker.map(DirEntry::into_path) {
+        let root = root.clone();
+        let to_server = to_server.clone();
+        let db = db.clone();
+        let conf = conf.clone();
+        let semaphore = semaphore.clone();
+        examined_files.push(tokio::spawn(async move {
+            examine_file(root, path, to_server, db, conf, semaphore).await
+        }));
     }
     for f in examined_files {
         if f.await?? {
@@ -175,14 +165,9 @@ pub(super) async fn watch_dir(
     loop {
         interval.tick().await;
         debug!("going through files in {root:?}");
-        let nfiles = recurse_through_files(
-            root.clone(),
-            &root,
-            to_server.clone(),
-            db.clone(),
-            conf.clone(),
-        )
-        .await?;
+        let nfiles =
+            recurse_through_files(root.clone(), to_server.clone(), db.clone(), conf.clone())
+                .await?;
         heart_beat.refresh(nfiles);
         if once && nfiles == 0 && db.lock().await.is_empty() {
             heart_beat.emit();
@@ -199,7 +184,7 @@ pub(crate) async fn main(config: Config) -> io::Result<()> {
     let to_server = framed_json_sink();
     let to_server = Arc::new(Mutex::new(to_server));
     let timer = Instant::now();
-    recurse_through_files(root.clone(), &root, to_server, db.clone(), config.clone()).await?;
+    recurse_through_files(root, to_server, db.clone(), config.clone()).await?;
     let duration = timer.elapsed();
     println!(
         "watched-files: found {} `{}` files to process in {:?}, took {:.3} s",
