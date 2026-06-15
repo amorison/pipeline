@@ -111,10 +111,15 @@ struct Watching {
 
 #[derive(Deserialize, Debug)]
 struct WatchingGroup {
-    extension: String,
+    filters: WatchingFilters,
     processing: String,
     last_modif_secs: u64,
     full_hash: bool,
+}
+
+#[derive(Deserialize, Debug)]
+struct WatchingFilters {
+    extension: Option<String>,
 }
 
 impl Config {

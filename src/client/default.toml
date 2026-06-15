@@ -51,8 +51,9 @@ max_concurrent_hashes = 3
 heartbeat_every_refreshes = 10
 
 [[watching.groups]]
-# The extension of files to process.
-extension = "dat"
+# Filters applying to this group. Available filters are:
+# - `extension`, checking the file extension matches the given name
+filters = {{ extension = "dat" }}
 # Which processing group should be run for these files (see server configuration).
 processing = "main"
 # How long ago the last modification should be (in seconds) for the file to be

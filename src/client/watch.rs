@@ -19,7 +19,7 @@ use walkdir::{DirEntry, WalkDir};
 
 use crate::{
     FileInfo, FileSpec,
-    client::{Config, Db, ToServer, WatchingGroup},
+    client::{Config, Db, ToServer, WatchingFilters, WatchingGroup},
     framed_io::framed_json_sink,
 };
 
@@ -32,13 +32,17 @@ enum Validation {
     TryNextGroup,
 }
 
+impl WatchingFilters {
+    fn pass(&self, entry: &DirEntry) -> bool {
+        self.extension
+            .as_ref()
+            .is_none_or(|ext| entry.path().extension().is_some_and(|e| **ext == *e))
+    }
+}
+
 impl WatchingGroup {
     fn validate(&self, entry: &DirEntry) -> io::Result<Validation> {
-        if entry
-            .path()
-            .extension()
-            .is_some_and(|ext| *ext == *self.extension)
-        {
+        if self.filters.pass(entry) {
             if let Ok(last_modif) = entry.metadata()?.modified()?.elapsed()
                 && last_modif > Duration::from_secs(self.last_modif_secs)
             {
