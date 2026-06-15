@@ -30,7 +30,6 @@ use tokio::{
     process::Command,
     sync::Mutex,
 };
-use walkdir::DirEntry;
 
 type Db = Arc<Mutex<HashSet<PathBuf>>>;
 type ToServer<W> = Arc<Mutex<WriteFramedJson<FileSpec, W>>>;
@@ -116,22 +115,6 @@ struct WatchingGroup {
     processing: String,
     last_modif_secs: u64,
     full_hash: bool,
-}
-
-impl WatchingGroup {
-    fn validate(&self, entry: &DirEntry) -> io::Result<bool> {
-        if entry
-            .path()
-            .extension()
-            .is_some_and(|ext| *ext == *self.extension)
-            && let Ok(last_modif) = entry.metadata()?.modified()?.elapsed()
-            && last_modif > Duration::from_secs(self.last_modif_secs)
-        {
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
 }
 
 impl Config {

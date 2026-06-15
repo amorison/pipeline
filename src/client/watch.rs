@@ -19,9 +19,25 @@ use walkdir::{DirEntry, WalkDir};
 
 use crate::{
     FileInfo, FileSpec,
-    client::{Config, Db, ToServer},
+    client::{Config, Db, ToServer, WatchingGroup},
     framed_io::framed_json_sink,
 };
+
+impl WatchingGroup {
+    fn validate(&self, entry: &DirEntry) -> io::Result<bool> {
+        if entry
+            .path()
+            .extension()
+            .is_some_and(|ext| *ext == *self.extension)
+            && let Ok(last_modif) = entry.metadata()?.modified()?.elapsed()
+            && last_modif > Duration::from_secs(self.last_modif_secs)
+        {
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+}
 
 async fn insert_path(db: &Db, path: &Path) -> bool {
     let mut db = db.lock().await;
