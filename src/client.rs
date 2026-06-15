@@ -120,6 +120,9 @@ struct WatchingGroup {
 #[derive(Deserialize, Debug)]
 struct WatchingFilters {
     extension: Option<String>,
+    #[serde(default)]
+    min_depth: usize,
+    max_depth: Option<usize>,
 }
 
 impl Config {

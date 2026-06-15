@@ -53,6 +53,9 @@ heartbeat_every_refreshes = 10
 [[watching.groups]]
 # Filters applying to this group. Available filters are:
 # - `extension`, checking the file extension matches the given name
+# - `min_depth` and `max_depth`, checking the depth of the file relative to
+#   the watched directory (note, the directory itself is depth 0, all files
+#   are therefore of depth 1 at least). Both values are inclusive.
 filters = {{ extension = "dat" }}
 # Which processing group should be run for these files (see server configuration).
 processing = "main"

@@ -37,6 +37,8 @@ impl WatchingFilters {
         self.extension
             .as_ref()
             .is_none_or(|ext| entry.path().extension().is_some_and(|e| **ext == *e))
+            && self.min_depth <= entry.depth()
+            && self.max_depth.is_none_or(|maxd| entry.depth() <= maxd)
     }
 }
 
