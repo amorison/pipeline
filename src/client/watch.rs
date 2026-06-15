@@ -23,18 +23,31 @@ use crate::{
     framed_io::framed_json_sink,
 };
 
+enum Validation {
+    /// File belongs to group and is ready
+    Ok,
+    /// File belongs to group but has been modified recently
+    TooRecent,
+    /// File doesn't belong to group, try next one
+    TryNextGroup,
+}
+
 impl WatchingGroup {
-    fn validate(&self, entry: &DirEntry) -> io::Result<bool> {
+    fn validate(&self, entry: &DirEntry) -> io::Result<Validation> {
         if entry
             .path()
             .extension()
             .is_some_and(|ext| *ext == *self.extension)
-            && let Ok(last_modif) = entry.metadata()?.modified()?.elapsed()
-            && last_modif > Duration::from_secs(self.last_modif_secs)
         {
-            Ok(true)
+            if let Ok(last_modif) = entry.metadata()?.modified()?.elapsed()
+                && last_modif > Duration::from_secs(self.last_modif_secs)
+            {
+                Ok(Validation::Ok)
+            } else {
+                Ok(Validation::TooRecent)
+            }
         } else {
-            Ok(false)
+            Ok(Validation::TryNextGroup)
         }
     }
 }
@@ -55,39 +68,45 @@ async fn file_info_if_new(
     conf: &Config,
 ) -> io::Result<Option<FileInfo>> {
     for group in &conf.watching.groups {
-        if group.validate(entry)? {
-            let relative_path = entry
-                .path()
-                .strip_prefix(root)
-                .expect("root should be parent of path");
+        match group.validate(entry)? {
+            Validation::Ok => {
+                let relative_path = entry
+                    .path()
+                    .strip_prefix(root)
+                    .expect("root should be parent of path");
 
-            // Extra sanitation: check that the file name and relative
-            // path can be represented as UTF8 strings, to safely send
-            // over the network.
-            let Some(filename) = entry.file_name().to_str() else {
-                return Ok(None);
-            };
-
-            let segments: Option<Vec<&str>> = relative_path
-                .parent()
-                .unwrap()
-                .iter()
-                .map(|segment| segment.to_str())
-                .collect();
-            let Some(segments) = segments else {
-                return Ok(None);
-            };
-
-            if insert_path(db, relative_path).await {
-                let info = FileInfo {
-                    filename: filename.to_owned(),
-                    relpath: segments.join("/"),
-                    processing: group.processing.clone(),
-                    full_hash: group.full_hash,
+                // Extra sanitation: check that the file name and relative
+                // path can be represented as UTF8 strings, to safely send
+                // over the network.
+                let Some(filename) = entry.file_name().to_str() else {
+                    return Ok(None);
                 };
-                return Ok(Some(info));
+
+                let segments: Option<Vec<&str>> = relative_path
+                    .parent()
+                    .unwrap()
+                    .iter()
+                    .map(|segment| segment.to_str())
+                    .collect();
+                let Some(segments) = segments else {
+                    return Ok(None);
+                };
+
+                if insert_path(db, relative_path).await {
+                    let info = FileInfo {
+                        filename: filename.to_owned(),
+                        relpath: segments.join("/"),
+                        processing: group.processing.clone(),
+                        full_hash: group.full_hash,
+                    };
+                    return Ok(Some(info));
+                }
+                return Ok(None);
             }
-            return Ok(None);
+            Validation::TooRecent => {
+                return Ok(None);
+            }
+            Validation::TryNextGroup => {}
         }
     }
     Ok(None)
