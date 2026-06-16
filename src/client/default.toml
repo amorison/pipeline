@@ -4,8 +4,8 @@
 
 # Client name.
 # This is meant as a convenience to identify more easily the provenance of
-# files on the server side. This can also be accessed in the `processing`
-# command on the server side (via the `{{client_name}}` placeholder).
+# files on the server side. This can also be accessed in `processing` commands
+# on the server side (via the `{{client_name}}` placeholder).
 name = "client_name"
 
 # Command to copy a file to the server for processing.
@@ -50,6 +50,12 @@ max_concurrent_hashes = 3
 # have been found since the last heartbeat. Set to 0 to disable heartbeat.
 heartbeat_every_refreshes = 10
 
+# List of watching groups.
+#
+# For each file in the watched directory, groups are considered in the order
+# they are defined in this configuration file. A file will end up in the first
+# group whose `filters` it passes (even if `last_modif_secs` have not elapsed
+# yet).
 [[watching.groups]]
 # Filters applying to this group. Available filters are:
 # - `extension`, checking the file extension matches the given name
