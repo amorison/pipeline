@@ -104,8 +104,16 @@ pub(crate) enum MarkStatus {
 
 fn conf_from_toml<T: for<'a> Deserialize<'a>>(path: &Path) -> io::Result<T> {
     let content = fs::read(path)?;
-    toml::from_slice(&content)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))
+    match toml::from_slice(&content) {
+        Ok(conf) => Ok(conf),
+        Err(err) => {
+            eprintln!("{err}");
+            Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "invalid config file",
+            ))
+        }
+    }
 }
 
 fn read_conf_and_chdir<T: for<'a> Deserialize<'a>>(path: &Path) -> io::Result<T> {
