@@ -157,6 +157,8 @@ async fn recurse_through_files<W: AsyncWrite + Unpin + Send + 'static>(
     let semaphore = Arc::new(Semaphore::new(conf.watching.max_concurrent_hashes));
     let mut found_files = 0;
     let walker = WalkDir::new(&root)
+        .min_depth(conf.watching.min_depth())
+        .max_depth(conf.watching.max_depth())
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file());

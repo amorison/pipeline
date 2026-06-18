@@ -130,6 +130,24 @@ fn default_max_depth() -> usize {
     usize::MAX
 }
 
+impl Watching {
+    fn min_depth(&self) -> usize {
+        self.groups
+            .iter()
+            .map(|g| g.filters.min_depth)
+            .min()
+            .unwrap_or(0)
+    }
+
+    fn max_depth(&self) -> usize {
+        self.groups
+            .iter()
+            .map(|g| g.filters.max_depth)
+            .max()
+            .unwrap_or(default_max_depth())
+    }
+}
+
 impl Config {
     fn watched_path(&self, spec: &FileSpec) -> PathBuf {
         assemble_path(&self.watching.directory, spec.relative_path())
