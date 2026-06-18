@@ -11,7 +11,7 @@ use std::{
 };
 
 use crate::{
-    FileSpec, Receipt, assemble_path,
+    FileSpec, Receipt, assemble_path, custom_serde,
     framed_io::{ReadFramedJson, WriteFramedJson, framed_json_channel},
     handshake, replace_os_strings,
 };
@@ -106,6 +106,7 @@ struct Watching {
     refresh_every_secs: u64,
     max_concurrent_hashes: usize,
     heartbeat_every_refreshes: u32,
+    #[serde(deserialize_with = "custom_serde::vec_at_least_one")]
     groups: Vec<WatchingGroup>,
 }
 

@@ -15,7 +15,7 @@ use std::{
 };
 
 use crate::{
-    FileSpec, Receipt, assemble_path,
+    FileSpec, Receipt, assemble_path, custom_serde,
     framed_io::{WriteFramedJson, framed_json_channel},
     handshake,
     hashing::FileDigest,
@@ -37,6 +37,7 @@ pub(crate) struct Config {
     address: String,
     incoming_directory: PathBuf,
     unix_mode: Option<u32>,
+    #[serde(deserialize_with = "custom_serde::map_at_least_one")]
     processing: HashMap<String, ProcessingGroup>,
     retry_tasks_every_secs: u64,
     prune_every_secs: u64,

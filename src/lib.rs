@@ -1,5 +1,6 @@
 pub mod cli;
 mod client;
+mod custom_serde;
 mod framed_io;
 mod handshake;
 mod hashing;
