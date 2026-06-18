@@ -37,13 +37,12 @@ pub(crate) async fn server_side(
             .filter(|g| !config.is_proc_group(g))
             .collect();
         if unknown_groups.is_empty() {
-            to_client.send(Answer::Ok).await.unwrap();
+            to_client.send(Answer::Ok).await?;
             Ok(HandshakeOutcome::Success)
         } else {
             to_client
                 .send(Answer::UnknownGroups(unknown_groups))
-                .await
-                .unwrap();
+                .await?;
             Ok(HandshakeOutcome::Denied)
         }
     } else {
@@ -61,8 +60,7 @@ pub(crate) async fn client_side(
         .send(Request {
             processing_groups: config.processing_groups(),
         })
-        .await
-        .unwrap();
+        .await?;
 
     if let Some(msg) = from_server.try_next().await? {
         match msg {
