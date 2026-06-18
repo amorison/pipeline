@@ -147,6 +147,14 @@ async fn examine_file<W: AsyncWrite + Unpin>(
     }
 }
 
+fn filter_dir_entry(entry: Result<DirEntry, walkdir::Error>) -> Option<DirEntry> {
+    let entry = entry.ok()?;
+    // Only consider paths that are valid UTF8 strings to be able to send them safely through
+    // the network.
+    entry.file_name().to_str()?;
+    Some(entry)
+}
+
 async fn recurse_through_files<W: AsyncWrite + Unpin + Send + 'static>(
     root: PathBuf,
     to_server: ToServer<W>,
@@ -160,7 +168,7 @@ async fn recurse_through_files<W: AsyncWrite + Unpin + Send + 'static>(
         .min_depth(conf.watching.min_depth())
         .max_depth(conf.watching.max_depth())
         .into_iter()
-        .filter_map(|e| e.ok())
+        .filter_map(filter_dir_entry)
         .filter(|e| e.file_type().is_file());
     for entry in walker {
         let root = root.clone();
