@@ -122,7 +122,12 @@ struct WatchingFilters {
     extension: Option<String>,
     #[serde(default)]
     min_depth: usize,
-    max_depth: Option<usize>,
+    #[serde(default = "default_max_depth")]
+    max_depth: usize,
+}
+
+fn default_max_depth() -> usize {
+    usize::MAX
 }
 
 impl Config {
