@@ -49,7 +49,8 @@ wal = false
 # - a `{ create_directory: "path" }` directive;
 # - a `{ delete_file: "path" }` directive;
 # - a `{ delete_directory: "path" }` directive;
-# - a list where each element is either of the previous.
+# - a list where each element is either of the previous;
+# - `"pass"` to not do anything.
 #
 # The following placeholders are replaced at runtime:
 # - `{server_path}` is the path of the file on the server;

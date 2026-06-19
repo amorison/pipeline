@@ -59,9 +59,12 @@ impl Step {
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
-#[serde(untagged)]
 enum InnerProc {
+    #[serde(rename = "pass")]
+    Pass,
+    #[serde(untagged)]
     One(Step),
+    #[serde(untagged)]
     List(#[serde(deserialize_with = "custom_serde::vec_at_least_one")] Vec<Step>),
 }
 
@@ -78,6 +81,7 @@ impl Processing {
                 }
                 Ok(())
             }
+            InnerProc::Pass => Ok(()),
         }
     }
 }
