@@ -3,7 +3,7 @@ use std::fs;
 use serde::Deserialize;
 use tokio::{io, process::Command};
 
-use crate::{FileSpec, replace_os_strings, server::Config};
+use crate::{FileSpec, custom_serde, replace_os_strings, server::Config};
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
 #[serde(untagged)]
@@ -11,7 +11,7 @@ enum Step {
     Mkdir { create_directory: String },
     DeleteFile { delete_file: String },
     DeleteDirectory { delete_directory: String },
-    ExternalCommand(Vec<String>),
+    ExternalCommand(#[serde(deserialize_with = "custom_serde::vec_at_least_one")] Vec<String>),
 }
 
 impl Step {
@@ -62,7 +62,7 @@ impl Step {
 #[serde(untagged)]
 enum InnerProc {
     One(Step),
-    List(Vec<Step>),
+    List(#[serde(deserialize_with = "custom_serde::vec_at_least_one")] Vec<Step>),
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
