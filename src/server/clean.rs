@@ -56,6 +56,23 @@ impl Display for CleanSummary {
     }
 }
 
+pub(super) async fn clean_spec(spec: FileSpec, config: &Config, db: &Database) -> Option<Metadata> {
+    debug!("pruning {spec:?}");
+    let mut meta = None;
+    let server_path = config.path_of(&spec);
+    match tokio::fs::metadata(&server_path).await {
+        Ok(m) => meta = Some(m),
+        Err(err) => warn!("error gathering metadata for {spec:?}: {err}"),
+    }
+    if let Err(err) = tokio::fs::remove_file(&server_path).await {
+        warn!("error pruning {spec:?}: {err}")
+    }
+    if let Err(err) = db.remove(spec.hash()).await {
+        warn!("error when removing {spec:?} from db: {err}")
+    }
+    meta
+}
+
 pub(super) async fn clean_tasks_with_status(
     config: Arc<Config>,
     db: Database,
@@ -67,17 +84,8 @@ pub(super) async fn clean_tasks_with_status(
     match to_prune {
         Ok(to_prune) => {
             for spec in to_prune.into_iter().map(FileSpec::from) {
-                debug!("pruning {spec:?}");
-                let server_path = config.path_of(&spec);
-                match tokio::fs::metadata(&server_path).await {
-                    Ok(meta) => summary.add(meta),
-                    Err(err) => warn!("error gathering metadata for {spec:?}: {err}"),
-                }
-                if let Err(err) = tokio::fs::remove_file(&server_path).await {
-                    warn!("error pruning {spec:?}: {err}")
-                }
-                if let Err(err) = db.remove(spec.hash()).await {
-                    warn!("error when removing {spec:?} from db: {err}")
+                if let Some(meta) = clean_spec(spec, &config, &db).await {
+                    summary.add(meta);
                 }
             }
         }
