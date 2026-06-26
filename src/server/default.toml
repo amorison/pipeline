@@ -67,16 +67,23 @@ processing = [
     [ "cp", "{server_path}", "./server/{client_relative_directory}/{client_file_stem}.out" ],
 ]
 
-# What status to give a job if the `processing` step was successful.
+# What to do if the `processing` step was successful.
 #
 # This can be either:
-# - `"Done"`: mark the job as completed;
-# - `"ToPrune"`: mark the job as completed and for pruning;
-# - `"Manual"`: leave the job marked as being processed.
+# - `{ mark_as = "Done" }`: mark the job as completed;
+# - `{ mark_as = "ToPrune" }`: mark the job as completed and for pruning;
+# - `"pass"`: leave the job marked as being processed;
+# - `{ move_to_and_prune = "destination/path" }`: move the processed file to the
+#   given destination and prune it from database (the same substitutions as in
+#   `processing` are available). This uses an efficient rename if the
+#   destination is on the same filesystem as the `incoming_directory`, and is
+#   therefore more efficient than making a copy as part of `processing`.
+#   Note that this doesn't automatically create directories, make sure the
+#   processing command creates directories if necessary.
 #
-# The `"Manual"` option is intended for cases when the `processing` command
+# The `"pass"` option is intended for cases when the `processing` command
 # above doesn't actually perform the desired processing but instead schedules
 # it for execution (e.g. via a SLURM queue). In this scenario, the job has to
 # be manually marked as done, failed or to-prune by calling
 # `pipeline server mark {hash} done|failed|to-prune`
-status_after_processing = "Done"
+after_processing = { mark_as = "Done" }

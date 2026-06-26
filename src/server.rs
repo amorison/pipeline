@@ -48,7 +48,7 @@ pub(crate) struct Config {
 #[derive(Deserialize, Debug, PartialEq, Eq)]
 struct ProcessingGroup {
     processing: processing::Processing,
-    status_after_processing: StatusAfterProcessing,
+    after_processing: processing::AfterProcessing,
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
@@ -57,26 +57,9 @@ struct Concurrency {
     max_processing: usize,
 }
 
-#[derive(Deserialize, Debug, PartialEq, Eq, Copy, Clone)]
-enum StatusAfterProcessing {
-    Done,
-    ToPrune,
-    Manual,
-}
-
 #[derive(Deserialize, Debug, PartialEq, Eq)]
 struct DatabaseConfig {
     wal: bool,
-}
-
-impl From<StatusAfterProcessing> for Option<ProcessStatus> {
-    fn from(value: StatusAfterProcessing) -> Self {
-        match value {
-            StatusAfterProcessing::Done => Some(ProcessStatus::Done),
-            StatusAfterProcessing::ToPrune => Some(ProcessStatus::ToPrune),
-            StatusAfterProcessing::Manual => None,
-        }
-    }
 }
 
 impl Config {
@@ -256,7 +239,7 @@ async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
     let status = match proc_group.processing.run(&file, &config).await {
         Ok(()) => {
             info!("processing of {file:?} completed successfully");
-            proc_group.status_after_processing.into()
+            proc_group.after_processing.run(&file, &config, &db).await
         }
         Err(err) => {
             warn!("processing of {file:?} failed: '{err}'");

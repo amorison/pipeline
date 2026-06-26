@@ -4,10 +4,14 @@ use std::{
     path::PathBuf,
 };
 
+use log::warn;
 use serde::Deserialize;
 use tokio::{io, process::Command};
 
-use crate::{FileSpec, custom_serde, replace_os_strings, server::Config};
+use crate::{
+    FileSpec, custom_serde, replace_os_strings,
+    server::{Config, Database, ProcessStatus},
+};
 
 struct Replacements<'a> {
     file: &'a FileSpec,
@@ -92,6 +96,65 @@ enum InnerProc {
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
 pub(super) struct Processing(InnerProc);
+
+#[derive(Deserialize, Debug, PartialEq, Eq)]
+pub(super) enum AfterProcessing {
+    #[serde(rename = "pass")]
+    Pass,
+    #[serde(untagged)]
+    MarkAs { mark_as: StatusAfterProcessing },
+    #[serde(untagged)]
+    MoveAndPrune { move_to_and_prune: String },
+}
+
+#[derive(Deserialize, Debug, PartialEq, Eq, Copy, Clone)]
+pub(super) enum StatusAfterProcessing {
+    Done,
+    ToPrune,
+}
+
+impl AfterProcessing {
+    pub(super) async fn run(
+        &self,
+        spec: &FileSpec,
+        config: &Config,
+        db: &Database,
+    ) -> Option<ProcessStatus> {
+        match self {
+            AfterProcessing::Pass => None,
+            AfterProcessing::MarkAs { mark_as } => match mark_as {
+                StatusAfterProcessing::Done => Some(ProcessStatus::Done),
+                StatusAfterProcessing::ToPrune => Some(ProcessStatus::ToPrune),
+            },
+            AfterProcessing::MoveAndPrune { move_to_and_prune } => {
+                let rep = Replacements::new(spec, config);
+                let dest = rep.apply_to(move_to_and_prune);
+                match fs::rename(&rep.server_path, &dest) {
+                    Ok(()) => match db.remove(spec.hash()).await {
+                        Ok(()) => None,
+                        Err(err) => {
+                            warn!("error when removing {spec:?} from db: {err}");
+                            Some(ProcessStatus::ToPrune)
+                        }
+                    },
+                    Err(err) if err.kind() == io::ErrorKind::CrossesDevices => {
+                        match fs::copy(&rep.server_path, &dest) {
+                            Ok(_) => Some(ProcessStatus::ToPrune),
+                            Err(err) => {
+                                warn!("failed copying {spec:?}: {err:?}");
+                                Some(ProcessStatus::Failed)
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        warn!("failed moving {spec:?}: {err:?}");
+                        Some(ProcessStatus::Failed)
+                    }
+                }
+            }
+        }
+    }
+}
 
 impl Processing {
     pub(super) async fn run(&self, file: &FileSpec, config: &Config) -> io::Result<()> {
