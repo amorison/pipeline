@@ -54,8 +54,7 @@ enum Step {
 }
 
 impl Step {
-    async fn run(&self, file: &FileSpec, config: &Config) -> io::Result<()> {
-        let rep = Replacements::new(file, config);
+    async fn run(&self, rep: &Replacements<'_>) -> io::Result<()> {
         match self {
             Step::Mkdir { create_directory } => {
                 let dir = rep.apply_to(create_directory);
@@ -159,10 +158,14 @@ impl AfterProcessing {
 impl Processing {
     pub(super) async fn run(&self, file: &FileSpec, config: &Config) -> io::Result<()> {
         match &self.0 {
-            InnerProc::One(step) => step.run(file, config).await,
+            InnerProc::One(step) => {
+                let rep = Replacements::new(file, config);
+                step.run(&rep).await
+            }
             InnerProc::List(steps) => {
+                let rep = Replacements::new(file, config);
                 for step in steps {
-                    step.run(file, config).await?;
+                    step.run(&rep).await?;
                 }
                 Ok(())
             }
