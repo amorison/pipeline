@@ -1,4 +1,8 @@
-use std::{ffi::OsStr, fs, path::PathBuf};
+use std::{
+    ffi::{OsStr, OsString},
+    fs,
+    path::PathBuf,
+};
 
 use serde::Deserialize;
 use tokio::{io, process::Command};
@@ -30,6 +34,10 @@ impl<'a> Replacements<'a> {
         ]
         .into_iter()
     }
+
+    fn apply_to(&'a self, s: &str) -> OsString {
+        replace_os_strings(s, self.iter())
+    }
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
@@ -46,24 +54,20 @@ impl Step {
         let rep = Replacements::new(file, config);
         match self {
             Step::Mkdir { create_directory } => {
-                let dir = replace_os_strings(create_directory, rep.iter());
+                let dir = rep.apply_to(create_directory);
                 fs::create_dir_all(dir)
             }
             Step::DeleteFile { delete_file } => {
-                let path = replace_os_strings(delete_file, rep.iter());
+                let path = rep.apply_to(delete_file);
                 fs::remove_file(path)
             }
             Step::DeleteDirectory { delete_directory } => {
-                let path = replace_os_strings(delete_directory, rep.iter());
+                let path = rep.apply_to(delete_directory);
                 fs::remove_dir_all(path)
             }
             Step::ExternalCommand(segments) => {
                 let mut processing = Command::new(&segments[0])
-                    .args(
-                        segments[1..]
-                            .iter()
-                            .map(|a| replace_os_strings(a, rep.iter())),
-                    )
+                    .args(segments[1..].iter().map(|a| rep.apply_to(a)))
                     .spawn()?;
 
                 match processing.wait().await {
