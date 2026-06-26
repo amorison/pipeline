@@ -1,9 +1,36 @@
-use std::fs;
+use std::{ffi::OsStr, fs, path::PathBuf};
 
 use serde::Deserialize;
 use tokio::{io, process::Command};
 
 use crate::{FileSpec, custom_serde, replace_os_strings, server::Config};
+
+struct Replacements<'a> {
+    file: &'a FileSpec,
+    server_path: PathBuf,
+    rel_dir: PathBuf,
+}
+
+impl<'a> Replacements<'a> {
+    fn new(file: &'a FileSpec, config: &Config) -> Self {
+        Self {
+            file,
+            server_path: config.path_of(file),
+            rel_dir: file.relative_directory(),
+        }
+    }
+
+    fn iter(&'a self) -> impl Iterator<Item = (&'a str, &'a OsStr)> {
+        [
+            ("{hash}", self.file.hash().as_ref()),
+            ("{server_path}", self.server_path.as_os_str()),
+            ("{client_name}", self.file.client.as_ref()),
+            ("{client_relative_directory}", self.rel_dir.as_os_str()),
+            ("{client_file_stem}", self.file.file_stem()),
+        ]
+        .into_iter()
+    }
+}
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
 #[serde(untagged)]
@@ -16,27 +43,18 @@ enum Step {
 
 impl Step {
     async fn run(&self, file: &FileSpec, config: &Config) -> io::Result<()> {
-        let server_path = config.path_of(file);
-        let rel_dir = file.relative_directory();
-        let replacements = [
-            ("{hash}", file.hash().as_ref()),
-            ("{server_path}", server_path.as_os_str()),
-            ("{client_name}", file.client.as_ref()),
-            ("{client_relative_directory}", rel_dir.as_os_str()),
-            ("{client_file_stem}", file.file_stem()),
-        ];
-
+        let rep = Replacements::new(file, config);
         match self {
             Step::Mkdir { create_directory } => {
-                let dir = replace_os_strings(create_directory, replacements.into_iter());
+                let dir = replace_os_strings(create_directory, rep.iter());
                 fs::create_dir_all(dir)
             }
             Step::DeleteFile { delete_file } => {
-                let path = replace_os_strings(delete_file, replacements.into_iter());
+                let path = replace_os_strings(delete_file, rep.iter());
                 fs::remove_file(path)
             }
             Step::DeleteDirectory { delete_directory } => {
-                let path = replace_os_strings(delete_directory, replacements.into_iter());
+                let path = replace_os_strings(delete_directory, rep.iter());
                 fs::remove_dir_all(path)
             }
             Step::ExternalCommand(segments) => {
@@ -44,7 +62,7 @@ impl Step {
                     .args(
                         segments[1..]
                             .iter()
-                            .map(|a| replace_os_strings(a, replacements.into_iter())),
+                            .map(|a| replace_os_strings(a, rep.iter())),
                     )
                     .spawn()?;
 
