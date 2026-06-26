@@ -99,6 +99,7 @@ impl Database {
                 date_utc TEXT NOT NULL,
                 path TEXT NOT NULL,
                 file_name TEXT NOT NULL,
+                processing TEXT NOT NULL,
                 status TEXT NOT NULL
             ) STRICT;",
         )
@@ -135,14 +136,15 @@ impl Database {
     pub(super) async fn insert_new(&self, file: &FileSpec) -> Result<()> {
         sqlx::query(
             "INSERT INTO files_in_pipeline
-            (hash, full_hash, client, date_utc, path, file_name, status)
-            VALUES ($1, $2, $3, datetime('now'), $4, $5, $6);",
+            (hash, full_hash, client, date_utc, path, file_name, processing, status)
+            VALUES ($1, $2, $3, datetime('now'), $4, $5, $6, $7);",
         )
         .bind(file.hash())
         .bind(file.sha256_digest.is_full())
         .bind(&file.client)
         .bind(&file.path)
         .bind(&file.filename)
+        .bind(&file.processing)
         .bind(ProcessStatus::AwaitFromClient.as_ref())
         .execute(&self.0)
         .await?;
