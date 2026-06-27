@@ -19,7 +19,7 @@ use crate::{
     framed_io::{WriteFramedJson, framed_json_channel},
     handshake::{self, ClientKind, HandshakeOutcome},
     hashing::FileDigest,
-    server::clean::clean_tasks_with_status,
+    server::{clean::clean_tasks_with_status, mark::process_mark_request},
 };
 use database::{Database, ProcessStatus};
 use futures_util::{SinkExt, TryStreamExt};
@@ -297,6 +297,10 @@ async fn handle_client(
         HandshakeOutcome::Success(ClientKind::Processing) => {
             info!("handshake with processing client {addr:?} was successful");
             listen_to_processing_client(stream, addr, config, db, sem_hash, sem_proc).await
+        }
+        HandshakeOutcome::Success(ClientKind::Mark { hash, status }) => {
+            info!("received mark request from {addr:?}");
+            process_mark_request(db, hash, status).await
         }
         HandshakeOutcome::Denied => {
             warn!("handshake with {addr:?} was not successful, closing connection");

@@ -4,7 +4,7 @@ use std::{
 };
 
 use clap::{Parser, Subcommand};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{client, server};
 
@@ -95,7 +95,7 @@ enum ServerCmd {
     },
 }
 
-#[derive(clap::ValueEnum, Copy, Clone)]
+#[derive(clap::ValueEnum, Serialize, Deserialize, Copy, Clone, Debug)]
 pub(crate) enum MarkStatus {
     Done,
     Failed,

@@ -5,7 +5,7 @@ use log::{error, warn};
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpStream;
 
-use crate::{framed_io::borrowed_json_channel, server};
+use crate::{cli::MarkStatus, framed_io::borrowed_json_channel, server};
 
 static VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -18,6 +18,7 @@ struct Request {
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) enum RequestPayload {
     ProcessingClient { groups: Vec<String> },
+    Mark { hash: String, status: MarkStatus },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -35,6 +36,7 @@ pub(crate) enum HandshakeOutcome {
 
 pub(crate) enum ClientKind {
     Processing,
+    Mark { hash: String, status: MarkStatus },
 }
 
 pub(crate) async fn server_side(
@@ -65,6 +67,10 @@ pub(crate) async fn server_side(
                         .await?;
                     Ok(HandshakeOutcome::Denied)
                 }
+            }
+            RequestPayload::Mark { hash, status } => {
+                to_client.send(Answer::Ok).await?;
+                Ok(HandshakeOutcome::Success(ClientKind::Mark { hash, status }))
             }
         }
     } else {
