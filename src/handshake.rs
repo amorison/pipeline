@@ -28,9 +28,13 @@ enum Answer {
 }
 
 pub(crate) enum HandshakeOutcome {
-    Success,
+    Success(ClientKind),
     Denied,
     ClosedConnection,
+}
+
+pub(crate) enum ClientKind {
+    Processing,
 }
 
 pub(crate) async fn server_side(
@@ -54,7 +58,7 @@ pub(crate) async fn server_side(
                     .collect();
                 if unknown_groups.is_empty() {
                     to_client.send(Answer::Ok).await?;
-                    Ok(HandshakeOutcome::Success)
+                    Ok(HandshakeOutcome::Success(ClientKind::Processing))
                 } else {
                     to_client
                         .send(Answer::UnknownGroups(unknown_groups))

@@ -17,7 +17,7 @@ use std::{
 use crate::{
     FileSpec, Receipt, assemble_path, custom_serde,
     framed_io::{WriteFramedJson, framed_json_channel},
-    handshake,
+    handshake::{self, ClientKind, HandshakeOutcome},
     hashing::FileDigest,
     server::clean::clean_tasks_with_status,
 };
@@ -294,16 +294,16 @@ async fn handle_client(
     debug!("got connection request from {addr:?}");
 
     match handshake::server_side(&mut stream, &config).await.unwrap() {
-        handshake::HandshakeOutcome::Success => {
-            info!("handshake with {addr:?} was successful");
+        HandshakeOutcome::Success(ClientKind::Processing) => {
+            info!("handshake with processing client {addr:?} was successful");
             listen_to_processing_client(stream, addr, config, db, sem_hash, sem_proc).await
         }
-        handshake::HandshakeOutcome::Denied => {
+        HandshakeOutcome::Denied => {
             warn!("handshake with {addr:?} was not successful, closing connection");
             _ = stream.shutdown().await;
             Ok(())
         }
-        handshake::HandshakeOutcome::ClosedConnection => {
+        HandshakeOutcome::ClosedConnection => {
             info!("client {addr:?} closed connection");
             Ok(())
         }
