@@ -13,7 +13,8 @@ use std::{
 use crate::{
     FileSpec, Receipt, assemble_path, custom_serde,
     framed_io::{ReadFramedJson, WriteFramedJson, framed_json_channel},
-    handshake, replace_os_strings,
+    handshake::{self, RequestPayload},
+    replace_os_strings,
 };
 use futures_util::TryStreamExt;
 use futures_util::sink::SinkExt;
@@ -317,7 +318,10 @@ pub(crate) async fn main(config: Config, once: bool) -> io::Result<()> {
         }
     };
 
-    match handshake::client_side(&mut stream, &config).await.unwrap() {
+    let payload = RequestPayload::ProcessingClient {
+        groups: config.processing_groups(),
+    };
+    match handshake::client_side(&mut stream, payload).await.unwrap() {
         handshake::HandshakeOutcome::Success => {
             info!("handshake with server was successful");
         }
