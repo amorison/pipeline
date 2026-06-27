@@ -1,7 +1,7 @@
 use std::io;
 
 use futures_util::{SinkExt, TryStreamExt};
-use log::error;
+use log::{error, warn};
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpStream;
 
@@ -71,7 +71,7 @@ pub(crate) async fn server_side(
 pub(crate) async fn client_side(
     stream: &mut TcpStream,
     payload: RequestPayload,
-) -> io::Result<HandshakeOutcome> {
+) -> io::Result<bool> {
     let (mut from_server, mut to_server) = borrowed_json_channel::<Answer, Request>(stream);
 
     to_server
@@ -83,17 +83,18 @@ pub(crate) async fn client_side(
 
     if let Some(msg) = from_server.try_next().await? {
         match msg {
-            Answer::Ok => Ok(HandshakeOutcome::Success),
+            Answer::Ok => Ok(true),
             Answer::DifferentVersion(version) => {
                 error!("server reported a different version {version:?} (client is {VERSION})");
-                Ok(HandshakeOutcome::Denied)
+                Ok(false)
             }
             Answer::UnknownGroups(items) => {
                 error!("server reported unknown groups {items:?}");
-                Ok(HandshakeOutcome::Denied)
+                Ok(false)
             }
         }
     } else {
-        Ok(HandshakeOutcome::ClosedConnection)
+        warn!("server closed connection");
+        Ok(false)
     }
 }

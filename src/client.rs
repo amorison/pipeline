@@ -18,12 +18,11 @@ use crate::{
 };
 use futures_util::TryStreamExt;
 use futures_util::sink::SinkExt;
-use log::{debug, error, info, warn};
+use log::{debug, info, warn};
 use russh::keys::PublicKey;
 use serde::Deserialize;
 use tokio::{
     fs,
-    io::AsyncWriteExt,
     net::{
         TcpStream,
         tcp::{OwnedReadHalf, OwnedWriteHalf},
@@ -321,19 +320,8 @@ pub(crate) async fn main(config: Config, once: bool) -> io::Result<()> {
     let payload = RequestPayload::ProcessingClient {
         groups: config.processing_groups(),
     };
-    match handshake::client_side(&mut stream, payload).await.unwrap() {
-        handshake::HandshakeOutcome::Success => {
-            info!("handshake with server was successful");
-        }
-        handshake::HandshakeOutcome::Denied => {
-            error!("handshake with server was denied");
-            _ = stream.shutdown().await;
-            return Ok(());
-        }
-        handshake::HandshakeOutcome::ClosedConnection => {
-            info!("server closed connection");
-            return Ok(());
-        }
+    if !handshake::client_side(&mut stream, payload).await? {
+        return Ok(());
     }
 
     let (from_server, to_server) = framed_json_channel::<Receipt, FileSpec>(stream);
