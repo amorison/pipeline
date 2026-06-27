@@ -256,31 +256,14 @@ async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
     }
 }
 
-async fn handle_client(
-    mut stream: TcpStream,
+async fn listen_to_processing_client(
+    stream: TcpStream,
     addr: SocketAddr,
     config: Arc<Config>,
     db: Database,
     sem_hash: Arc<Semaphore>,
     sem_proc: Arc<Semaphore>,
 ) -> io::Result<()> {
-    info!("got connection request from {addr:?}");
-
-    match handshake::server_side(&mut stream, &config).await.unwrap() {
-        handshake::HandshakeOutcome::Success => {
-            info!("handshake with {addr:?} was successful");
-        }
-        handshake::HandshakeOutcome::Denied => {
-            warn!("handshake with {addr:?} was not successful, closing connection");
-            _ = stream.shutdown().await;
-            return Ok(());
-        }
-        handshake::HandshakeOutcome::ClosedConnection => {
-            info!("client {addr:?} closed connection");
-            return Ok(());
-        }
-    }
-
     let (mut from_client, to_client) = framed_json_channel::<FileSpec, Receipt>(stream);
     let to_client = Arc::new(Mutex::new(to_client));
 
@@ -298,6 +281,33 @@ async fn handle_client(
 
     info!("client {addr:?} closed connection");
     Ok(())
+}
+
+async fn handle_client(
+    mut stream: TcpStream,
+    addr: SocketAddr,
+    config: Arc<Config>,
+    db: Database,
+    sem_hash: Arc<Semaphore>,
+    sem_proc: Arc<Semaphore>,
+) -> io::Result<()> {
+    debug!("got connection request from {addr:?}");
+
+    match handshake::server_side(&mut stream, &config).await.unwrap() {
+        handshake::HandshakeOutcome::Success => {
+            info!("handshake with {addr:?} was successful");
+            listen_to_processing_client(stream, addr, config, db, sem_hash, sem_proc).await
+        }
+        handshake::HandshakeOutcome::Denied => {
+            warn!("handshake with {addr:?} was not successful, closing connection");
+            _ = stream.shutdown().await;
+            Ok(())
+        }
+        handshake::HandshakeOutcome::ClosedConnection => {
+            info!("client {addr:?} closed connection");
+            Ok(())
+        }
+    }
 }
 
 async fn listen_to_clients(config: Arc<Config>, db: Database) -> io::Result<()> {
