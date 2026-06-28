@@ -12,7 +12,7 @@ use serde::Deserialize;
 use tokio::net::TcpStream;
 use tokio::sync::oneshot;
 
-use tokio::{fs, net::TcpListener};
+use tokio::net::TcpListener;
 use zeroize::Zeroize;
 
 /// Configuration to connect to server.
@@ -100,10 +100,7 @@ async fn create_session(client: Client, conf: &SshTunnelConfig) -> Handle<Client
         }
         SshAuth::Key { user, public_key } => {
             info!("authenticate as {user} with key");
-            let public_key = fs::read_to_string(public_key)
-                .await
-                .unwrap_or_else(|_| panic!("Failed to read public key {public_key:?}"));
-            let public_key = PublicKey::from_openssh(&public_key).expect("Failed to parse key");
+            let public_key = PublicKey::read_openssh_file(public_key).expect("failed to parse key");
             let agent = cfg_select! {
                 unix => { AgentClient::connect_env().await }
                 windows => {{
