@@ -16,7 +16,7 @@ use std::{
 
 use crate::{
     FileSpec, Receipt, assemble_path, custom_serde,
-    framed_io::{WriteFramedJson, framed_json_channel},
+    framed_io::{WriteFramedJson, json_channel},
     handshake::{self, ClientKind, HandshakeOutcome},
     hashing::FileDigest,
     server::{clean::clean_tasks_with_status, mark::process_mark_request},
@@ -264,7 +264,7 @@ async fn listen_to_processing_client(
     sem_hash: Arc<Semaphore>,
     sem_proc: Arc<Semaphore>,
 ) -> io::Result<()> {
-    let (mut from_client, to_client) = framed_json_channel::<FileSpec, Receipt>(stream);
+    let (mut from_client, to_client) = json_channel::<FileSpec, Receipt, _, _, _>(stream);
     let to_client = Arc::new(Mutex::new(to_client));
 
     while let Some(msg) = from_client.try_next().await? {

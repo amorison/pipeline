@@ -21,27 +21,32 @@ fn framed_json_writer<T, W: AsyncWrite>(writer: W) -> WriteFramedJson<T, W> {
     )
 }
 
-pub(crate) fn framed_json_channel<T, U>(
-    stream: TcpStream,
-) -> (
-    ReadFramedJson<T, OwnedReadHalf>,
-    WriteFramedJson<U, OwnedWriteHalf>,
-) {
-    let (socket_r, socket_w) = stream.into_split();
-    let read_half = tokio_serde::SymmetricallyFramed::new(
-        FramedRead::new(socket_r, LengthDelimitedCodec::new()),
-        SymmetricalJson::<T>::default(),
-    );
-    let write_half = framed_json_writer(socket_w);
-    (read_half, write_half)
+pub(crate) trait Splittable<R, W>
+where
+    Self: Sized,
+{
+    fn split(self) -> (R, W);
 }
 
-pub(crate) fn borrowed_json_channel<'a, T, U>(
-    stream: &'a mut TcpStream,
-) -> (
-    ReadFramedJson<T, ReadHalf<'a>>,
-    WriteFramedJson<U, WriteHalf<'a>>,
-) {
+impl Splittable<OwnedReadHalf, OwnedWriteHalf> for TcpStream {
+    fn split(self) -> (OwnedReadHalf, OwnedWriteHalf) {
+        self.into_split()
+    }
+}
+
+impl<'a> Splittable<ReadHalf<'a>, WriteHalf<'a>> for &'a mut TcpStream {
+    fn split(self) -> (ReadHalf<'a>, WriteHalf<'a>) {
+        self.split()
+    }
+}
+
+pub(crate) fn json_channel<T, U, R, W, S>(
+    stream: S,
+) -> (ReadFramedJson<T, R>, WriteFramedJson<U, W>)
+where
+    S: Splittable<R, W>,
+    W: AsyncWrite,
+{
     let (socket_r, socket_w) = stream.split();
     let read_half = tokio_serde::SymmetricallyFramed::new(
         FramedRead::new(socket_r, LengthDelimitedCodec::new()),

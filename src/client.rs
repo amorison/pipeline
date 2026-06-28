@@ -12,7 +12,7 @@ use std::{
 
 use crate::{
     FileSpec, Receipt, assemble_path, custom_serde,
-    framed_io::{ReadFramedJson, WriteFramedJson, framed_json_channel},
+    framed_io::{ReadFramedJson, WriteFramedJson, json_channel},
     handshake::{self, RequestPayload},
     replace_os_strings,
 };
@@ -324,7 +324,7 @@ pub(crate) async fn main(config: Config, once: bool) -> io::Result<()> {
         return Ok(());
     }
 
-    let (from_server, to_server) = framed_json_channel::<Receipt, FileSpec>(stream);
+    let (from_server, to_server) = json_channel::<Receipt, FileSpec, _, _, _>(stream);
 
     let to_server = Arc::new(Mutex::new(to_server));
     let db = Arc::new(Mutex::new(HashSet::new()));

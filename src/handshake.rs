@@ -5,7 +5,7 @@ use log::{error, warn};
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpStream;
 
-use crate::{cli::MarkStatus, framed_io::borrowed_json_channel, server};
+use crate::{cli::MarkStatus, framed_io::json_channel, server};
 
 static VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -43,7 +43,7 @@ pub(crate) async fn server_side(
     stream: &mut TcpStream,
     config: &server::Config,
 ) -> io::Result<HandshakeOutcome> {
-    let (mut from_client, mut to_client) = borrowed_json_channel::<Request, Answer>(stream);
+    let (mut from_client, mut to_client) = json_channel::<Request, Answer, _, _, _>(stream);
 
     if let Some(msg) = from_client.try_next().await? {
         if msg.version != VERSION {
@@ -82,7 +82,7 @@ pub(crate) async fn client_side(
     stream: &mut TcpStream,
     payload: RequestPayload,
 ) -> io::Result<bool> {
-    let (mut from_server, mut to_server) = borrowed_json_channel::<Answer, Request>(stream);
+    let (mut from_server, mut to_server) = json_channel::<Answer, Request, _, _, _>(stream);
 
     to_server
         .send(Request {
