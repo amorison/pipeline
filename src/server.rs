@@ -35,15 +35,20 @@ use tokio::{
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
 pub(crate) struct Config {
-    address: String,
     incoming_directory: PathBuf,
     unix_mode: Option<u32>,
     #[serde(deserialize_with = "custom_serde::map_at_least_one")]
     processing: HashMap<String, ProcessingGroup>,
     retry_tasks_every_secs: u64,
     prune_every_secs: u64,
+    server: ServerAddress,
     concurrency: Concurrency,
     database: DatabaseConfig,
+}
+
+#[derive(Deserialize, Debug, PartialEq, Eq)]
+pub(crate) struct ServerAddress {
+    address: String,
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
@@ -325,7 +330,7 @@ async fn handle_client(
 }
 
 async fn listen_to_clients(config: Arc<Config>, db: Database) -> io::Result<()> {
-    let listener = TcpListener::bind(&config.address).await?;
+    let listener = TcpListener::bind(&config.server.address).await?;
     let sem_hash = Arc::new(Semaphore::new(config.concurrency.max_hashes));
     let sem_proc = Arc::new(Semaphore::new(config.concurrency.max_processing));
 

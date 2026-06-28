@@ -2,9 +2,6 @@
 
 # Relative paths are resolved with respect to this file location.
 
-# Location of the server, communication occurs via TCP.
-address = "127.0.0.1:12345"
-
 # The directory where the client is expected to send the files to process.
 # The `copy_to_server` command on the client side must copy the file to
 # process to that directory with the name `{server_filename}`.
@@ -22,6 +19,10 @@ retry_tasks_every_secs = 60
 # A pruned task will be forgotten by the server and the incoming files
 # deleted.
 prune_every_secs = 120
+
+# Location of the server, communication occurs via TCP.
+[server]
+address = "127.0.0.1:12345"
 
 [concurrency]
 # Maximum concurrent computations of file hashes.
