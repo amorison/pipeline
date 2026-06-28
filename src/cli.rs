@@ -8,7 +8,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     client,
-    server::{self, query},
+    server::{
+        self,
+        query::{self, Query},
+    },
 };
 
 /// Processing pipeline utility
@@ -190,7 +193,8 @@ async fn query_cli(cmd: QueryCmd) -> io::Result<()> {
             status,
         } => {
             let config = read_conf_and_chdir(&config)?;
-            query::mark::main(config, hash, status).await
+            let query = Query::Mark { hash, status };
+            query::main(config, query).await
         }
     }
 }
