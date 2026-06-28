@@ -3,22 +3,52 @@ use std::io;
 use log::warn;
 use serde::Deserialize;
 use tabled::{Table, settings::Style};
+use tokio::net::TcpStream;
 
 use crate::{
     cli::MarkStatus,
+    framed_io::json_channel,
     handshake::{self, RequestPayload},
-    server::{Database, database::DatabaseReadOnly},
+    server::{Database, database::FileInPipeline},
     server_route::ServerRoute,
 };
+use futures_util::{TryStreamExt, sink::SinkExt};
 
+#[derive(Clone)]
 pub(crate) enum Query {
     Mark { hash: String, status: MarkStatus },
+    List,
+}
+
+impl Query {
+    async fn get_response(&self, stream: TcpStream) -> io::Result<()> {
+        match self {
+            Query::Mark { .. } => Ok(()),
+            Query::List => {
+                let (mut from_server, _) = json_channel::<Vec<FileInPipeline>, (), _, _, _>(stream);
+                let content = from_server
+                    .try_next()
+                    .await?
+                    .expect("should have exactly one answer");
+                let mut table = Table::new(&content);
+                table.with(
+                    Style::markdown()
+                        .remove_vertical()
+                        .remove_left()
+                        .remove_right(),
+                );
+                println!("{table}");
+                Ok(())
+            }
+        }
+    }
 }
 
 impl From<Query> for RequestPayload {
     fn from(value: Query) -> Self {
         match value {
             Query::Mark { hash, status } => RequestPayload::Mark { hash, status },
+            Query::List => RequestPayload::List,
         }
     }
 }
@@ -31,11 +61,11 @@ pub(crate) struct QueryConfig {
 
 pub(crate) async fn main(config: QueryConfig, query: Query) -> io::Result<()> {
     let mut stream = config.server.connect().await;
-    let payload = query.into();
+    let payload = query.clone().into();
     if !handshake::client_side(&mut stream, payload).await? {
         return Err(io::Error::other("handshake failed"));
     }
-    Ok(())
+    query.get_response(stream).await
 }
 
 pub(super) async fn process_mark_query(
@@ -49,18 +79,10 @@ pub(super) async fn process_mark_query(
     Ok(())
 }
 
-pub(crate) async fn process_list_query() -> io::Result<()> {
-    let db = DatabaseReadOnly::new().await.unwrap();
+pub(super) async fn process_list_query(stream: TcpStream, db: Database) -> io::Result<()> {
     let content = db.content().await.unwrap();
-    let mut table = Table::new(&content);
-    table.with(
-        Style::markdown()
-            .remove_vertical()
-            .remove_left()
-            .remove_right(),
-    );
-    println!("{table}");
-    Ok(())
+    let (_, mut to_client) = json_channel::<(), Vec<FileInPipeline>, _, _, _>(stream);
+    to_client.send(content).await
 }
 
 #[cfg(test)]

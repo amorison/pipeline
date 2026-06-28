@@ -1,5 +1,6 @@
+use serde::{Deserialize, Serialize};
 use sqlx::{
-    Pool, Result, Sqlite, SqlitePool,
+    Pool, Result, Sqlite,
     prelude::{FromRow, Type},
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
 };
@@ -9,7 +10,7 @@ use crate::{FileSpec, cli::MarkStatus, hashing::FileDigest};
 
 static DB_FILENAME: &str = ".pipeline_server.db";
 
-#[derive(Copy, Clone, Type, Debug)]
+#[derive(Serialize, Deserialize, Copy, Clone, Type, Debug)]
 pub(super) enum ProcessStatus {
     AwaitFromClient,
     Processing,
@@ -28,7 +29,7 @@ impl From<MarkStatus> for ProcessStatus {
     }
 }
 
-#[derive(FromRow, Tabled)]
+#[derive(FromRow, Tabled, Serialize, Deserialize)]
 pub(super) struct FileInPipeline {
     hash: String,
     full_hash: bool,
@@ -170,22 +171,6 @@ impl Database {
             .execute(&self.0)
             .await?;
         Ok(())
-    }
-}
-
-#[derive(Clone)]
-pub(super) struct DatabaseReadOnly(Pool<Sqlite>);
-
-impl DatabaseReadOnly {
-    pub(super) async fn new() -> Result<Self> {
-        let pool = SqlitePool::connect_with(
-            SqliteConnectOptions::new()
-                .filename(DB_FILENAME)
-                .read_only(true),
-        )
-        .await?;
-
-        Ok(Self(pool))
     }
 
     pub(super) async fn content(&self) -> Result<Vec<FileInPipeline>> {

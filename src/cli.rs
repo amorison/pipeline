@@ -98,7 +98,10 @@ enum ServerCmd {
 #[derive(Subcommand)]
 enum QueryCmd {
     /// List files in pipeline and their status
-    List,
+    List {
+        /// Configuration file
+        config: PathBuf,
+    },
     /// Change the status of a file in the pipeline
     Mark {
         /// Configuration file
@@ -186,7 +189,10 @@ async fn server_cli(cmd: ServerCmd) -> io::Result<()> {
 
 async fn query_cli(cmd: QueryCmd) -> io::Result<()> {
     match cmd {
-        QueryCmd::List => query::process_list_query().await,
+        QueryCmd::List { config } => {
+            let config = read_conf_and_chdir(&config)?;
+            query::main(config, Query::List).await
+        }
         QueryCmd::Mark {
             config,
             hash,

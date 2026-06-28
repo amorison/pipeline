@@ -312,6 +312,10 @@ async fn handle_client(
             info!("received mark request from {addr:?}");
             query::process_mark_query(db, hash, status).await
         }
+        Ok(HandshakeOutcome::Success(ClientKind::List)) => {
+            info!("received list request from {addr:?}");
+            query::process_list_query(stream, db).await
+        }
         Ok(HandshakeOutcome::Denied) => {
             warn!("handshake with {addr:?} was not successful, closing connection");
             _ = stream.shutdown().await;
