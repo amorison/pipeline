@@ -28,6 +28,11 @@ enum Commands {
         #[command(subcommand)]
         cmd: ServerCmd,
     },
+    /// Query the pipeline server
+    Query {
+        #[command(subcommand)]
+        cmd: QueryCmd,
+    },
 }
 
 #[derive(Subcommand)]
@@ -79,6 +84,15 @@ enum ServerCmd {
         #[arg(long)]
         done: bool,
     },
+    /// Convenience to create all buckets, e.g. to set permissions
+    CreateBuckets {
+        /// Configuration file
+        config: PathBuf,
+    },
+}
+
+#[derive(Subcommand)]
+enum QueryCmd {
     /// Change the status of a file in the pipeline
     Mark {
         /// Configuration file
@@ -87,11 +101,6 @@ enum ServerCmd {
         hash: String,
         /// Desired status to set
         status: MarkStatus,
-    },
-    /// Convenience to create all buckets, e.g. to set permissions
-    CreateBuckets {
-        /// Configuration file
-        config: PathBuf,
     },
 }
 
@@ -164,16 +173,21 @@ async fn server_cli(cmd: ServerCmd) -> io::Result<()> {
         ServerCmd::Clean { config, done } => {
             server::clean::main(read_conf_and_chdir(&config)?, done).await
         }
-        ServerCmd::Mark {
+        ServerCmd::CreateBuckets { config } => {
+            server::create_buckets::main(read_conf_and_chdir(&config)?).await
+        }
+    }
+}
+
+async fn query_cli(cmd: QueryCmd) -> io::Result<()> {
+    match cmd {
+        QueryCmd::Mark {
             config,
             hash,
             status,
         } => {
             let config = read_conf_and_chdir(&config)?;
             server::query::mark::main(config, hash, status).await
-        }
-        ServerCmd::CreateBuckets { config } => {
-            server::create_buckets::main(read_conf_and_chdir(&config)?).await
         }
     }
 }
@@ -183,6 +197,7 @@ pub async fn main() -> io::Result<()> {
     match cli.command {
         Commands::Client { cmd } => client_cli(cmd).await,
         Commands::Server { cmd } => server_cli(cmd).await,
+        Commands::Query { cmd } => query_cli(cmd).await,
     }
 }
 
