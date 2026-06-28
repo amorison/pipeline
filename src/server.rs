@@ -299,23 +299,27 @@ async fn handle_client(
 ) -> io::Result<()> {
     debug!("got connection request from {addr:?}");
 
-    match handshake::server_side(&mut stream, &config).await.unwrap() {
-        HandshakeOutcome::Success(ClientKind::Processing) => {
+    match handshake::server_side(&mut stream, &config).await {
+        Ok(HandshakeOutcome::Success(ClientKind::Processing)) => {
             info!("handshake with processing client {addr:?} was successful");
             listen_to_processing_client(stream, addr, config, db, sem_hash, sem_proc).await
         }
-        HandshakeOutcome::Success(ClientKind::Mark { hash, status }) => {
+        Ok(HandshakeOutcome::Success(ClientKind::Mark { hash, status })) => {
             info!("received mark request from {addr:?}");
             process_mark_request(db, hash, status).await
         }
-        HandshakeOutcome::Denied => {
+        Ok(HandshakeOutcome::Denied) => {
             warn!("handshake with {addr:?} was not successful, closing connection");
             _ = stream.shutdown().await;
             Ok(())
         }
-        HandshakeOutcome::ClosedConnection => {
+        Ok(HandshakeOutcome::ClosedConnection) => {
             info!("client {addr:?} closed connection");
             Ok(())
+        }
+        Err(err) => {
+            warn!("error reading from {addr:?}: {err}");
+            stream.write_all(b"pipeline: invalid request\n").await
         }
     }
 }
