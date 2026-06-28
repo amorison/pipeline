@@ -5,10 +5,10 @@ use crate::{
     cli::MarkStatus,
     handshake::{self, RequestPayload},
     server::Database,
-    server_route::QueryConfig,
+    server::query::QueryConfig,
 };
 
-pub(super) async fn process_mark_request(
+pub(in crate::server) async fn process_request(
     db: Database,
     hash: String,
     status: MarkStatus,

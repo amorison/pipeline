@@ -170,7 +170,7 @@ async fn server_cli(cmd: ServerCmd) -> io::Result<()> {
             status,
         } => {
             let config = read_conf_and_chdir(&config)?;
-            server::mark::main(config, hash, status).await
+            server::query::mark::main(config, hash, status).await
         }
         ServerCmd::CreateBuckets { config } => {
             server::create_buckets::main(read_conf_and_chdir(&config)?).await

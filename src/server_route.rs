@@ -15,12 +15,6 @@ use tokio::sync::oneshot;
 use tokio::{fs, net::TcpListener};
 use zeroize::Zeroize;
 
-/// Minimal configuration file for commands that only query the server.
-#[derive(Deserialize, Debug)]
-pub(crate) struct QueryConfig {
-    pub(crate) server: ServerRoute,
-}
-
 /// Configuration to connect to server.
 #[derive(Deserialize, Debug)]
 #[serde(untagged)]
@@ -211,28 +205,5 @@ impl ServerRoute {
                 stream
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn default_server_conf_as_query() {
-        let bytes = crate::server::DEFAULT_TOML_CONF.as_bytes();
-        assert!(toml::from_slice::<QueryConfig>(bytes).is_ok())
-    }
-
-    #[test]
-    fn default_client_conf_as_query() {
-        let bytes = crate::client::DEFAULT_TOML_CONF.as_bytes();
-        assert!(toml::from_slice::<QueryConfig>(bytes).is_ok())
-    }
-
-    #[test]
-    fn tunnel_client_conf_as_query() {
-        let bytes = crate::client::TUNNEL_TOML_CONF.as_bytes();
-        assert!(toml::from_slice::<QueryConfig>(bytes).is_ok())
     }
 }

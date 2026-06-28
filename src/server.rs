@@ -2,8 +2,8 @@ pub(crate) mod clean;
 pub(crate) mod create_buckets;
 pub(crate) mod database;
 pub(crate) mod list;
-pub(crate) mod mark;
 mod processing;
+pub(crate) mod query;
 
 use std::{
     collections::HashMap,
@@ -19,7 +19,7 @@ use crate::{
     framed_io::{Splittable, WriteFramedJson, json_channel},
     handshake::{self, ClientKind, HandshakeOutcome},
     hashing::FileDigest,
-    server::{clean::clean_tasks_with_status, mark::process_mark_request},
+    server::clean::clean_tasks_with_status,
 };
 use database::{Database, ProcessStatus};
 use futures_util::{SinkExt, TryStreamExt};
@@ -311,7 +311,7 @@ async fn handle_client(
         }
         Ok(HandshakeOutcome::Success(ClientKind::Mark { hash, status })) => {
             info!("received mark request from {addr:?}");
-            process_mark_request(db, hash, status).await
+            query::mark::process_request(db, hash, status).await
         }
         Ok(HandshakeOutcome::Denied) => {
             warn!("handshake with {addr:?} was not successful, closing connection");
