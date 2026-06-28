@@ -310,7 +310,7 @@ async fn handle_client(
         }
         Ok(HandshakeOutcome::Success(ClientKind::Mark { hash, status })) => {
             info!("received mark request from {addr:?}");
-            query::mark::process_request(db, hash, status).await
+            query::process_mark_query(db, hash, status).await
         }
         Ok(HandshakeOutcome::Denied) => {
             warn!("handshake with {addr:?} was not successful, closing connection");

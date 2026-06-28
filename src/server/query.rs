@@ -1,13 +1,14 @@
 pub(crate) mod list;
-pub(crate) mod mark;
 
 use std::io;
 
+use log::warn;
 use serde::Deserialize;
 
 use crate::{
     cli::MarkStatus,
     handshake::{self, RequestPayload},
+    server::Database,
     server_route::ServerRoute,
 };
 
@@ -34,6 +35,17 @@ pub(crate) async fn main(config: QueryConfig, query: Query) -> io::Result<()> {
     let payload = query.into();
     if !handshake::client_side(&mut stream, payload).await? {
         return Err(io::Error::other("handshake failed"));
+    }
+    Ok(())
+}
+
+pub(super) async fn process_mark_query(
+    db: Database,
+    hash: String,
+    status: MarkStatus,
+) -> io::Result<()> {
+    while let Err(err) = db.update_status(&hash, status.into()).await {
+        warn!("error updating status for {hash}: {err}");
     }
     Ok(())
 }
