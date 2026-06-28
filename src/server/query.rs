@@ -62,6 +62,8 @@ pub(crate) struct QueryConfig {
     server: ServerRoute,
 }
 
+pub(crate) static QUERY_TOML_CONF: &str = include_str!("query.toml");
+
 pub(crate) async fn main(config: QueryConfig, query: Query) -> io::Result<()> {
     let mut stream = config.server.connect().await;
     let payload = query.clone().into();
@@ -98,6 +100,12 @@ pub(super) async fn process_prune_done_query(db: Database) -> io::Result<()> {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn read_query_conf() {
+        let bytes = QUERY_TOML_CONF.as_bytes();
+        assert!(toml::from_slice::<QueryConfig>(bytes).is_ok())
+    }
 
     #[test]
     fn default_server_conf_as_query() {

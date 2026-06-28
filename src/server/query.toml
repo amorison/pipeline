@@ -1,0 +1,32 @@
+# Location of server, which is all that is required to perform a query.
+#
+# Note that either the client or the server configuration file can be used
+# instead if the provided server address is reachable.
+#
+# This example sets up an ssh tunnel. It is also possible to provide a direct
+# address such as
+# [server]
+# address = "127.0.0.1:12345"
+
+[server]
+# Address of ssh host for tunnelling.
+ssh_host = "192.168.0.1"
+# Port of ssh host.
+ssh_port = 22
+# Authentication on ssh host.
+# The following methods are available:
+# - no authentication (e.g. if otherwise managed by network interface)
+#   { method = "none", user = "user" }
+# - ask password to user
+#   { method = "password", user = "user" }
+# - use a key via the openssh agent at `SSH_AUTH_SOCK`
+#   { method = "key", user = "user", public_key = "path/to/key.pub" }
+ssh_auth = { method = "none", user = "user" }
+# Send a keepalive if no communication occurs for this duration in seconds.
+keepalive_every_secs = 60
+# Address of pipeline server as seen from ssh host.
+server_addr_from_host = "127.0.0.1"
+# Port of pipeline server as seen from ssh host.
+server_port_from_host = 12345
+# Accepted keys from ssh host.
+accepted_ssh_keys = []

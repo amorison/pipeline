@@ -116,6 +116,11 @@ enum QueryCmd {
         /// Configuration file
         config: PathBuf,
     },
+    /// Print configuration example
+    Config {
+        /// Print configuration to this file, otherwise stdout
+        path: Option<PathBuf>,
+    },
 }
 
 #[derive(clap::ValueEnum, Serialize, Deserialize, Copy, Clone, Debug)]
@@ -210,6 +215,14 @@ async fn query_cli(cmd: QueryCmd) -> io::Result<()> {
         QueryCmd::PruneDone { config } => {
             let config = read_conf_and_chdir(&config)?;
             query::main(config, Query::PruneDone).await
+        }
+        QueryCmd::Config { path } => {
+            let content = query::QUERY_TOML_CONF;
+            match path {
+                Some(path) => fs::write(path, content)?,
+                None => print!("{content}"),
+            }
+            Ok(())
         }
     }
 }
