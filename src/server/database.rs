@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::{
     Pool, Result, Sqlite,
     prelude::{FromRow, Type},
-    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
+    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqliteLockingMode, SqlitePoolOptions},
 };
 use tabled::Tabled;
 
@@ -87,6 +87,7 @@ impl Database {
             .connect_with(
                 SqliteConnectOptions::new()
                     .filename(DB_FILENAME)
+                    .locking_mode(SqliteLockingMode::Exclusive)
                     .journal_mode(journal_mode)
                     .create_if_missing(true),
             )
