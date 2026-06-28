@@ -16,7 +16,7 @@ use std::{
 
 use crate::{
     FileSpec, Receipt, assemble_path, custom_serde,
-    framed_io::{WriteFramedJson, json_channel},
+    framed_io::{Splittable, WriteFramedJson, json_channel},
     handshake::{self, ClientKind, HandshakeOutcome},
     hashing::FileDigest,
     server::{clean::clean_tasks_with_status, mark::process_mark_request},
@@ -26,8 +26,9 @@ use futures_util::{SinkExt, TryStreamExt};
 use log::{debug, error, info, warn};
 use serde::Deserialize;
 use tokio::{
+    io::AsyncReadExt,
     io::AsyncWriteExt,
-    net::{TcpListener, TcpStream, tcp::OwnedWriteHalf},
+    net::{TcpListener, TcpStream},
     sync::{Mutex, Semaphore},
     time::MissedTickBehavior,
 };
@@ -121,9 +122,9 @@ fn rel_path(spec: &FileSpec, config: &Config) -> String {
     }
 }
 
-async fn processing_pipeline(
+async fn processing_pipeline<W: AsyncWriteExt + Unpin>(
     file: FileSpec,
-    channel: Arc<Mutex<WriteFramedJson<Receipt, OwnedWriteHalf>>>,
+    channel: Arc<Mutex<WriteFramedJson<Receipt, W>>>,
     config: Arc<Config>,
     db: Database,
     sem_hash: Arc<Semaphore>,
@@ -256,14 +257,19 @@ async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
     }
 }
 
-async fn listen_to_processing_client(
-    stream: TcpStream,
+async fn listen_to_processing_client<R, W, S>(
+    stream: S,
     addr: SocketAddr,
     config: Arc<Config>,
     db: Database,
     sem_hash: Arc<Semaphore>,
     sem_proc: Arc<Semaphore>,
-) -> io::Result<()> {
+) -> io::Result<()>
+where
+    S: Splittable<R, W>,
+    R: AsyncReadExt + Unpin,
+    W: AsyncWriteExt + Unpin + Send + 'static,
+{
     let (mut from_client, to_client) = json_channel::<FileSpec, Receipt, _, _, _>(stream);
     let to_client = Arc::new(Mutex::new(to_client));
 

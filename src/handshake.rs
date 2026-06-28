@@ -3,9 +3,13 @@ use std::io;
 use futures_util::{SinkExt, TryStreamExt};
 use log::{error, warn};
 use serde::{Deserialize, Serialize};
-use tokio::net::TcpStream;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-use crate::{cli::MarkStatus, framed_io::json_channel, server};
+use crate::{
+    cli::MarkStatus,
+    framed_io::{Splittable, json_channel},
+    server,
+};
 
 static VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -39,10 +43,15 @@ pub(crate) enum ClientKind {
     Mark { hash: String, status: MarkStatus },
 }
 
-pub(crate) async fn server_side(
-    stream: &mut TcpStream,
+pub(crate) async fn server_side<R, W, S>(
+    stream: S,
     config: &server::Config,
-) -> io::Result<HandshakeOutcome> {
+) -> io::Result<HandshakeOutcome>
+where
+    S: Splittable<R, W>,
+    R: AsyncReadExt + Unpin,
+    W: AsyncWriteExt + Unpin,
+{
     let (mut from_client, mut to_client) = json_channel::<Request, Answer, _, _, _>(stream);
 
     if let Some(msg) = from_client.try_next().await? {
@@ -78,10 +87,12 @@ pub(crate) async fn server_side(
     }
 }
 
-pub(crate) async fn client_side(
-    stream: &mut TcpStream,
-    payload: RequestPayload,
-) -> io::Result<bool> {
+pub(crate) async fn client_side<R, W, S>(stream: S, payload: RequestPayload) -> io::Result<bool>
+where
+    S: Splittable<R, W>,
+    R: AsyncReadExt + Unpin,
+    W: AsyncWriteExt + Unpin,
+{
     let (mut from_server, mut to_server) = json_channel::<Answer, Request, _, _, _>(stream);
 
     to_server
