@@ -6,7 +6,10 @@ use std::{
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 
-use crate::{client, server};
+use crate::{
+    client,
+    server::{self, query},
+};
 
 /// Processing pipeline utility
 #[derive(Parser)]
@@ -74,8 +77,6 @@ enum ServerCmd {
         /// Print configuration to this file, otherwise stdout
         path: Option<PathBuf>,
     },
-    /// List files in pipeline and their status
-    List,
     /// Remove already processed files on server
     Clean {
         /// Configuration file
@@ -93,6 +94,8 @@ enum ServerCmd {
 
 #[derive(Subcommand)]
 enum QueryCmd {
+    /// List files in pipeline and their status
+    List,
     /// Change the status of a file in the pipeline
     Mark {
         /// Configuration file
@@ -169,7 +172,6 @@ async fn server_cli(cmd: ServerCmd) -> io::Result<()> {
             }
             Ok(())
         }
-        ServerCmd::List => server::list::main().await,
         ServerCmd::Clean { config, done } => {
             server::clean::main(read_conf_and_chdir(&config)?, done).await
         }
@@ -181,13 +183,14 @@ async fn server_cli(cmd: ServerCmd) -> io::Result<()> {
 
 async fn query_cli(cmd: QueryCmd) -> io::Result<()> {
     match cmd {
+        QueryCmd::List => query::list::main().await,
         QueryCmd::Mark {
             config,
             hash,
             status,
         } => {
             let config = read_conf_and_chdir(&config)?;
-            server::query::mark::main(config, hash, status).await
+            query::mark::main(config, hash, status).await
         }
     }
 }

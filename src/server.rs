@@ -1,7 +1,6 @@
 pub(crate) mod clean;
 pub(crate) mod create_buckets;
 pub(crate) mod database;
-pub(crate) mod list;
 mod processing;
 pub(crate) mod query;
 
