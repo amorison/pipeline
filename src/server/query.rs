@@ -1,14 +1,13 @@
-pub(crate) mod list;
-
 use std::io;
 
 use log::warn;
 use serde::Deserialize;
+use tabled::{Table, settings::Style};
 
 use crate::{
     cli::MarkStatus,
     handshake::{self, RequestPayload},
-    server::Database,
+    server::{Database, database::DatabaseReadOnly},
     server_route::ServerRoute,
 };
 
@@ -47,6 +46,20 @@ pub(super) async fn process_mark_query(
     while let Err(err) = db.update_status(&hash, status.into()).await {
         warn!("error updating status for {hash}: {err}");
     }
+    Ok(())
+}
+
+pub(crate) async fn process_list_query() -> io::Result<()> {
+    let db = DatabaseReadOnly::new().await.unwrap();
+    let content = db.content().await.unwrap();
+    let mut table = Table::new(&content);
+    table.with(
+        Style::markdown()
+            .remove_vertical()
+            .remove_left()
+            .remove_right(),
+    );
+    println!("{table}");
     Ok(())
 }
 

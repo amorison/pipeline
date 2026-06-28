@@ -186,7 +186,7 @@ async fn server_cli(cmd: ServerCmd) -> io::Result<()> {
 
 async fn query_cli(cmd: QueryCmd) -> io::Result<()> {
     match cmd {
-        QueryCmd::List => query::list::main().await,
+        QueryCmd::List => query::process_list_query().await,
         QueryCmd::Mark {
             config,
             hash,
