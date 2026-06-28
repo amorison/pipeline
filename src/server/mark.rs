@@ -1,10 +1,11 @@
 use log::warn;
-use tokio::{io, net::TcpStream};
+use tokio::io;
 
 use crate::{
     cli::MarkStatus,
     handshake::{self, RequestPayload},
-    server::{Config, Database},
+    server::Database,
+    server_route::QueryConfig,
 };
 
 pub(super) async fn process_mark_request(
@@ -18,15 +19,14 @@ pub(super) async fn process_mark_request(
     Ok(())
 }
 
-pub(crate) async fn main(config: Config, hash: String, status: MarkStatus) -> io::Result<()> {
-    let addr = &config.address;
-    let mut stream = TcpStream::connect(addr).await?;
+pub(crate) async fn main(config: QueryConfig, hash: String, status: MarkStatus) -> io::Result<()> {
+    let mut stream = config.server.connect().await;
 
     let payload = RequestPayload::Mark { hash, status };
     if !handshake::client_side(&mut stream, payload).await? {
-        eprintln!("mark request to {} failed", addr);
+        eprintln!("mark request failed");
         return Ok(());
     }
-    eprintln!("mark request accepted by {}", addr);
+    eprintln!("mark request accepted");
     Ok(())
 }

@@ -15,6 +15,12 @@ use tokio::sync::oneshot;
 use tokio::{fs, net::TcpListener};
 use zeroize::Zeroize;
 
+/// Minimal configuration file for commands that only query the server.
+#[derive(Deserialize, Debug)]
+pub(crate) struct QueryConfig {
+    pub(crate) server: ServerRoute,
+}
+
 /// Configuration to connect to server.
 #[derive(Deserialize, Debug)]
 #[serde(untagged)]
