@@ -111,6 +111,11 @@ enum QueryCmd {
         /// Desired status to set
         status: MarkStatus,
     },
+    /// Mark "done" tasks as "to-prune"
+    PruneDone {
+        /// Configuration file
+        config: PathBuf,
+    },
 }
 
 #[derive(clap::ValueEnum, Serialize, Deserialize, Copy, Clone, Debug)]
@@ -201,6 +206,10 @@ async fn query_cli(cmd: QueryCmd) -> io::Result<()> {
             let config = read_conf_and_chdir(&config)?;
             let query = Query::Mark { hash, status };
             query::main(config, query).await
+        }
+        QueryCmd::PruneDone { config } => {
+            let config = read_conf_and_chdir(&config)?;
+            query::main(config, Query::PruneDone).await
         }
     }
 }

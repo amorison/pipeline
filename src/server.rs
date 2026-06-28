@@ -316,6 +316,10 @@ async fn handle_client(
             info!("received list request from {addr:?}");
             query::process_list_query(stream, db).await
         }
+        Ok(HandshakeOutcome::Success(ClientKind::PruneDone)) => {
+            info!("received request to prune 'done' tasks from {addr:?}");
+            query::process_prune_done_query(db).await
+        }
         Ok(HandshakeOutcome::Denied) => {
             warn!("handshake with {addr:?} was not successful, closing connection");
             _ = stream.shutdown().await;

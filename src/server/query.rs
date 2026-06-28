@@ -18,6 +18,7 @@ use futures_util::{TryStreamExt, sink::SinkExt};
 pub(crate) enum Query {
     Mark { hash: String, status: MarkStatus },
     List,
+    PruneDone,
 }
 
 impl Query {
@@ -40,6 +41,7 @@ impl Query {
                 println!("{table}");
                 Ok(())
             }
+            Query::PruneDone => Ok(()),
         }
     }
 }
@@ -49,6 +51,7 @@ impl From<Query> for RequestPayload {
         match value {
             Query::Mark { hash, status } => RequestPayload::Mark { hash, status },
             Query::List => RequestPayload::List,
+            Query::PruneDone => RequestPayload::PruneDone,
         }
     }
 }
@@ -83,6 +86,13 @@ pub(super) async fn process_list_query(stream: TcpStream, db: Database) -> io::R
     let content = db.content().await.unwrap();
     let (_, mut to_client) = json_channel::<(), Vec<FileInPipeline>, _, _, _>(stream);
     to_client.send(content).await
+}
+
+pub(super) async fn process_prune_done_query(db: Database) -> io::Result<()> {
+    if let Err(err) = db.mark_done_to_prune().await {
+        warn!("error marking 'done' tasks to prune: {err}");
+    }
+    Ok(())
 }
 
 #[cfg(test)]

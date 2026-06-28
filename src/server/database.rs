@@ -165,6 +165,17 @@ impl Database {
         Ok(())
     }
 
+    pub(super) async fn mark_done_to_prune(&self) -> Result<()> {
+        sqlx::query(
+            "UPDATE files_in_pipeline
+            SET status = 'ToPrune'
+            WHERE status = 'Done';",
+        )
+        .execute(&self.0)
+        .await?;
+        Ok(())
+    }
+
     pub(super) async fn remove(&self, hash: &str) -> Result<()> {
         sqlx::query("DELETE FROM files_in_pipeline WHERE hash = $1;")
             .bind(hash)

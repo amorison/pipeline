@@ -24,6 +24,7 @@ pub(crate) enum RequestPayload {
     ProcessingClient { groups: Vec<String> },
     Mark { hash: String, status: MarkStatus },
     List,
+    PruneDone,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -43,6 +44,7 @@ pub(crate) enum ClientKind {
     Processing,
     Mark { hash: String, status: MarkStatus },
     List,
+    PruneDone,
 }
 
 pub(crate) async fn server_side<R, W, S>(
@@ -86,6 +88,10 @@ where
             RequestPayload::List => {
                 to_client.send(Answer::Ok).await?;
                 Ok(HandshakeOutcome::Success(ClientKind::List))
+            }
+            RequestPayload::PruneDone => {
+                to_client.send(Answer::Ok).await?;
+                Ok(HandshakeOutcome::Success(ClientKind::PruneDone))
             }
         }
     } else {
