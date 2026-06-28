@@ -1,4 +1,3 @@
-mod ssh_tunnel;
 pub(crate) mod watch;
 
 use std::{
@@ -7,7 +6,6 @@ use std::{
     path::PathBuf,
     process::ExitStatus,
     sync::{Arc, LazyLock},
-    time::Duration,
 };
 
 use crate::{
@@ -15,18 +13,15 @@ use crate::{
     framed_io::{ReadFramedJson, WriteFramedJson, json_channel},
     handshake::{self, RequestPayload},
     replace_os_strings,
+    server_route::ServerRoute,
 };
 use futures_util::TryStreamExt;
 use futures_util::sink::SinkExt;
 use log::{debug, info, warn};
-use russh::keys::PublicKey;
 use serde::Deserialize;
 use tokio::{
     fs,
-    net::{
-        TcpStream,
-        tcp::{OwnedReadHalf, OwnedWriteHalf},
-    },
+    net::tcp::{OwnedReadHalf, OwnedWriteHalf},
     process::Command,
     sync::Mutex,
 };
@@ -38,7 +33,7 @@ type ToServer<W> = Arc<Mutex<WriteFramedJson<FileSpec, W>>>;
 pub(crate) struct Config {
     name: String,
     copy_to_server: CopyToServer,
-    server: Server,
+    server: ServerRoute,
     watching: Watching,
 }
 
@@ -58,32 +53,6 @@ impl CopyToServer {
             CopyToServer::Command(_) => true,
         }
     }
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(untagged)]
-enum Server {
-    Direct { address: String },
-    SshTunnel(SshTunnelConfig),
-}
-
-#[derive(Deserialize, Debug, Clone)]
-struct SshTunnelConfig {
-    ssh_host: String,
-    ssh_port: u16,
-    ssh_auth: SshAuth,
-    keepalive_every_secs: u64,
-    server_addr_from_host: String,
-    server_port_from_host: u16,
-    accepted_ssh_keys: Vec<PublicKey>,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-#[serde(tag = "method", rename_all = "kebab-case")]
-enum SshAuth {
-    None { user: String },
-    Password { user: String },
-    Key { user: String, public_key: PathBuf },
 }
 
 pub(crate) static DEFAULT_TOML_CONF: LazyLock<String> = LazyLock::new(|| {
@@ -295,27 +264,7 @@ async fn send_file_to_server(
 }
 
 pub(crate) async fn main(config: Config, once: bool) -> io::Result<()> {
-    let mut stream = match &config.server {
-        Server::Direct { address } => {
-            let stream = loop {
-                let stream = TcpStream::connect(address).await;
-                match stream {
-                    Ok(stream) => break stream,
-                    Err(err) => {
-                        warn!("cannot connect to {address}, will retry in 3s: {err}");
-                        tokio::time::sleep(Duration::from_secs(3)).await;
-                    }
-                }
-            };
-            info!("connected to server at {address}");
-            stream
-        }
-        Server::SshTunnel(conf) => {
-            let stream = ssh_tunnel::setup_tunnel(conf.clone()).await;
-            info!("connected to server via SSH tunnel");
-            stream
-        }
-    };
+    let mut stream = config.server.connect().await;
 
     let payload = RequestPayload::ProcessingClient {
         groups: config.processing_groups(),

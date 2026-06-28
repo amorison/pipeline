@@ -5,6 +5,7 @@ mod framed_io;
 mod handshake;
 mod hashing;
 mod server;
+mod server_route;
 
 use bstr::{ByteSlice, ByteVec};
 use serde::{Deserialize, Serialize};
