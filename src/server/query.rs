@@ -19,6 +19,7 @@ pub(crate) enum Query {
     Mark { hash: String, status: MarkStatus },
     List,
     PruneDone,
+    Status,
 }
 
 impl Query {
@@ -42,6 +43,10 @@ impl Query {
                 Ok(())
             }
             Query::PruneDone => Ok(()),
+            Query::Status => {
+                println!("pipeline server is online");
+                Ok(())
+            }
         }
     }
 }
@@ -52,6 +57,7 @@ impl From<Query> for RequestPayload {
             Query::Mark { hash, status } => RequestPayload::Mark { hash, status },
             Query::List => RequestPayload::List,
             Query::PruneDone => RequestPayload::PruneDone,
+            Query::Status => RequestPayload::Status,
         }
     }
 }

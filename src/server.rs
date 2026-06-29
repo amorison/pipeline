@@ -320,6 +320,10 @@ async fn handle_client(
             info!("received request to prune 'done' tasks from {addr:?}");
             query::process_prune_done_query(db).await
         }
+        Ok(HandshakeOutcome::Success(ClientKind::Status)) => {
+            info!("received status request from {addr:?}");
+            Ok(())
+        }
         Ok(HandshakeOutcome::Denied) => {
             warn!("handshake with {addr:?} was not successful, closing connection");
             _ = stream.shutdown().await;

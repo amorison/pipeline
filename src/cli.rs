@@ -116,6 +116,11 @@ enum QueryCmd {
         /// Configuration file
         config: PathBuf,
     },
+    /// Check status of server
+    Status {
+        /// Configuration file
+        config: PathBuf,
+    },
     /// Print configuration example
     Config {
         /// Print configuration to this file, otherwise stdout
@@ -215,6 +220,10 @@ async fn query_cli(cmd: QueryCmd) -> io::Result<()> {
         QueryCmd::PruneDone { config } => {
             let config = read_conf_and_chdir(&config)?;
             query::main(config, Query::PruneDone).await
+        }
+        QueryCmd::Status { config } => {
+            let config = read_conf_and_chdir(&config)?;
+            query::main(config, Query::Status).await
         }
         QueryCmd::Config { path } => {
             let content = query::QUERY_TOML_CONF;
