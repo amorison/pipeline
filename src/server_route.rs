@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::time::Duration;
 use std::{collections::HashSet, sync::Arc};
 
@@ -7,13 +8,39 @@ use russh::{
     client::{self as ssh_client, Handle},
     keys::{PublicKey, ssh_key::public::KeyData},
 };
+use serde::Deserialize;
 use tokio::net::TcpStream;
 use tokio::sync::oneshot;
 
 use tokio::{fs, net::TcpListener};
 use zeroize::Zeroize;
 
-use crate::client::{SshAuth, SshTunnelConfig};
+/// Configuration to connect to server.
+#[derive(Deserialize, Debug)]
+#[serde(untagged)]
+pub(crate) enum ServerRoute {
+    Direct { address: String },
+    SshTunnel(SshTunnelConfig),
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub(crate) struct SshTunnelConfig {
+    ssh_host: String,
+    ssh_port: u16,
+    ssh_auth: SshAuth,
+    keepalive_every_secs: u64,
+    server_addr_from_host: String,
+    server_port_from_host: u16,
+    accepted_ssh_keys: Vec<PublicKey>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(tag = "method", rename_all = "kebab-case")]
+enum SshAuth {
+    None { user: String },
+    Password { user: String },
+    Key { user: String, public_key: PathBuf },
+}
 
 struct Client {
     accepted_keys: HashSet<KeyData>,
@@ -99,7 +126,7 @@ async fn create_session(client: Client, conf: &SshTunnelConfig) -> Handle<Client
 }
 
 /// Setup the SSH tunnel.
-pub(super) async fn setup_tunnel(conf: SshTunnelConfig) -> TcpStream {
+async fn setup_tunnel(conf: SshTunnelConfig) -> TcpStream {
     let local_listener = TcpListener::bind("127.0.0.1:0")
         .await
         .expect("Cannot bind local port");
@@ -153,4 +180,30 @@ pub(super) async fn setup_tunnel(conf: SshTunnelConfig) -> TcpStream {
     });
 
     rx_tunnel.await.expect("tx_tunnel has been dropped")
+}
+
+impl ServerRoute {
+    pub(crate) async fn connect(&self) -> TcpStream {
+        match self {
+            Self::Direct { address } => {
+                let stream = loop {
+                    let stream = TcpStream::connect(address).await;
+                    match stream {
+                        Ok(stream) => break stream,
+                        Err(err) => {
+                            warn!("cannot connect to {address}, will retry in 3s: {err}");
+                            tokio::time::sleep(Duration::from_secs(3)).await;
+                        }
+                    }
+                };
+                info!("connected to server at {address}");
+                stream
+            }
+            Self::SshTunnel(conf) => {
+                let stream = setup_tunnel(conf.clone()).await;
+                info!("connected to server via SSH tunnel");
+                stream
+            }
+        }
+    }
 }

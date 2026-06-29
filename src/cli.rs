@@ -4,9 +4,15 @@ use std::{
 };
 
 use clap::{Parser, Subcommand};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-use crate::{client, server};
+use crate::{
+    client,
+    server::{
+        self,
+        query::{self, Query},
+    },
+};
 
 /// Processing pipeline utility
 #[derive(Parser)]
@@ -27,6 +33,11 @@ enum Commands {
     Server {
         #[command(subcommand)]
         cmd: ServerCmd,
+    },
+    /// Query the pipeline server
+    Query {
+        #[command(subcommand)]
+        cmd: QueryCmd,
     },
 }
 
@@ -69,8 +80,6 @@ enum ServerCmd {
         /// Print configuration to this file, otherwise stdout
         path: Option<PathBuf>,
     },
-    /// List files in pipeline and their status
-    List,
     /// Remove already processed files on server
     Clean {
         /// Configuration file
@@ -78,6 +87,20 @@ enum ServerCmd {
         /// Also remove `Done` tasks instead of only `ToPrune` ones
         #[arg(long)]
         done: bool,
+    },
+    /// Convenience to create all buckets, e.g. to set permissions
+    CreateBuckets {
+        /// Configuration file
+        config: PathBuf,
+    },
+}
+
+#[derive(Subcommand)]
+enum QueryCmd {
+    /// List files in pipeline and their status
+    List {
+        /// Configuration file
+        config: PathBuf,
     },
     /// Change the status of a file in the pipeline
     Mark {
@@ -88,14 +111,24 @@ enum ServerCmd {
         /// Desired status to set
         status: MarkStatus,
     },
-    /// Convenience to create all buckets, e.g. to set permissions
-    CreateBuckets {
+    /// Mark "done" tasks as "to-prune"
+    PruneDone {
         /// Configuration file
         config: PathBuf,
     },
+    /// Check status of server
+    Status {
+        /// Configuration file
+        config: PathBuf,
+    },
+    /// Print configuration example
+    Config {
+        /// Print configuration to this file, otherwise stdout
+        path: Option<PathBuf>,
+    },
 }
 
-#[derive(clap::ValueEnum, Copy, Clone)]
+#[derive(clap::ValueEnum, Serialize, Deserialize, Copy, Clone, Debug)]
 pub(crate) enum MarkStatus {
     Done,
     Failed,
@@ -160,20 +193,45 @@ async fn server_cli(cmd: ServerCmd) -> io::Result<()> {
             }
             Ok(())
         }
-        ServerCmd::List => server::list::main().await,
         ServerCmd::Clean { config, done } => {
             server::clean::main(read_conf_and_chdir(&config)?, done).await
         }
-        ServerCmd::Mark {
+        ServerCmd::CreateBuckets { config } => {
+            server::create_buckets::main(read_conf_and_chdir(&config)?).await
+        }
+    }
+}
+
+async fn query_cli(cmd: QueryCmd) -> io::Result<()> {
+    match cmd {
+        QueryCmd::List { config } => {
+            let config = read_conf_and_chdir(&config)?;
+            query::main(config, Query::List).await
+        }
+        QueryCmd::Mark {
             config,
             hash,
             status,
         } => {
             let config = read_conf_and_chdir(&config)?;
-            server::mark::main(config, hash, status).await
+            let query = Query::Mark { hash, status };
+            query::main(config, query).await
         }
-        ServerCmd::CreateBuckets { config } => {
-            server::create_buckets::main(read_conf_and_chdir(&config)?).await
+        QueryCmd::PruneDone { config } => {
+            let config = read_conf_and_chdir(&config)?;
+            query::main(config, Query::PruneDone).await
+        }
+        QueryCmd::Status { config } => {
+            let config = read_conf_and_chdir(&config)?;
+            query::main(config, Query::Status).await
+        }
+        QueryCmd::Config { path } => {
+            let content = query::QUERY_TOML_CONF;
+            match path {
+                Some(path) => fs::write(path, content)?,
+                None => print!("{content}"),
+            }
+            Ok(())
         }
     }
 }
@@ -183,6 +241,7 @@ pub async fn main() -> io::Result<()> {
     match cli.command {
         Commands::Client { cmd } => client_cli(cmd).await,
         Commands::Server { cmd } => server_cli(cmd).await,
+        Commands::Query { cmd } => query_cli(cmd).await,
     }
 }
 

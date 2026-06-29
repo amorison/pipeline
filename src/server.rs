@@ -1,9 +1,8 @@
 pub(crate) mod clean;
 pub(crate) mod create_buckets;
 pub(crate) mod database;
-pub(crate) mod list;
-pub(crate) mod mark;
 mod processing;
+pub(crate) mod query;
 
 use std::{
     collections::HashMap,
@@ -16,8 +15,8 @@ use std::{
 
 use crate::{
     FileSpec, Receipt, assemble_path, custom_serde,
-    framed_io::{WriteFramedJson, framed_json_channel},
-    handshake,
+    framed_io::{Splittable, WriteFramedJson, json_channel},
+    handshake::{self, ClientKind, HandshakeOutcome},
     hashing::FileDigest,
     server::clean::clean_tasks_with_status,
 };
@@ -26,23 +25,29 @@ use futures_util::{SinkExt, TryStreamExt};
 use log::{debug, error, info, warn};
 use serde::Deserialize;
 use tokio::{
+    io::AsyncReadExt,
     io::AsyncWriteExt,
-    net::{TcpListener, TcpStream, tcp::OwnedWriteHalf},
+    net::{TcpListener, TcpStream},
     sync::{Mutex, Semaphore},
     time::MissedTickBehavior,
 };
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
 pub(crate) struct Config {
-    address: String,
     incoming_directory: PathBuf,
     unix_mode: Option<u32>,
     #[serde(deserialize_with = "custom_serde::map_at_least_one")]
     processing: HashMap<String, ProcessingGroup>,
     retry_tasks_every_secs: u64,
     prune_every_secs: u64,
+    server: ServerAddress,
     concurrency: Concurrency,
     database: DatabaseConfig,
+}
+
+#[derive(Deserialize, Debug, PartialEq, Eq)]
+pub(crate) struct ServerAddress {
+    address: String,
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
@@ -121,9 +126,9 @@ fn rel_path(spec: &FileSpec, config: &Config) -> String {
     }
 }
 
-async fn processing_pipeline(
+async fn processing_pipeline<W: AsyncWriteExt + Unpin>(
     file: FileSpec,
-    channel: Arc<Mutex<WriteFramedJson<Receipt, OwnedWriteHalf>>>,
+    channel: Arc<Mutex<WriteFramedJson<Receipt, W>>>,
     config: Arc<Config>,
     db: Database,
     sem_hash: Arc<Semaphore>,
@@ -256,32 +261,20 @@ async fn process_file(file: FileSpec, config: Arc<Config>, db: Database) {
     }
 }
 
-async fn handle_client(
-    mut stream: TcpStream,
+async fn listen_to_processing_client<R, W, S>(
+    stream: S,
     addr: SocketAddr,
     config: Arc<Config>,
     db: Database,
     sem_hash: Arc<Semaphore>,
     sem_proc: Arc<Semaphore>,
-) -> io::Result<()> {
-    info!("got connection request from {addr:?}");
-
-    match handshake::server_side(&mut stream, &config).await.unwrap() {
-        handshake::HandshakeOutcome::Success => {
-            info!("handshake with {addr:?} was successful");
-        }
-        handshake::HandshakeOutcome::Denied => {
-            warn!("handshake with {addr:?} was not successful, closing connection");
-            _ = stream.shutdown().await;
-            return Ok(());
-        }
-        handshake::HandshakeOutcome::ClosedConnection => {
-            info!("client {addr:?} closed connection");
-            return Ok(());
-        }
-    }
-
-    let (mut from_client, to_client) = framed_json_channel::<FileSpec, Receipt>(stream);
+) -> io::Result<()>
+where
+    S: Splittable<R, W>,
+    R: AsyncReadExt + Unpin,
+    W: AsyncWriteExt + Unpin + Send + 'static,
+{
+    let (mut from_client, to_client) = json_channel::<FileSpec, Receipt, _, _, _>(stream);
     let to_client = Arc::new(Mutex::new(to_client));
 
     while let Some(msg) = from_client.try_next().await? {
@@ -300,8 +293,55 @@ async fn handle_client(
     Ok(())
 }
 
+async fn handle_client(
+    mut stream: TcpStream,
+    addr: SocketAddr,
+    config: Arc<Config>,
+    db: Database,
+    sem_hash: Arc<Semaphore>,
+    sem_proc: Arc<Semaphore>,
+) -> io::Result<()> {
+    debug!("got connection request from {addr:?}");
+
+    match handshake::server_side(&mut stream, &config).await {
+        Ok(HandshakeOutcome::Success(ClientKind::Processing)) => {
+            info!("handshake with processing client {addr:?} was successful");
+            listen_to_processing_client(stream, addr, config, db, sem_hash, sem_proc).await
+        }
+        Ok(HandshakeOutcome::Success(ClientKind::Mark { hash, status })) => {
+            info!("received mark request from {addr:?}");
+            query::process_mark_query(db, hash, status).await
+        }
+        Ok(HandshakeOutcome::Success(ClientKind::List)) => {
+            info!("received list request from {addr:?}");
+            query::process_list_query(stream, db).await
+        }
+        Ok(HandshakeOutcome::Success(ClientKind::PruneDone)) => {
+            info!("received request to prune 'done' tasks from {addr:?}");
+            query::process_prune_done_query(db).await
+        }
+        Ok(HandshakeOutcome::Success(ClientKind::Status)) => {
+            info!("received status request from {addr:?}");
+            Ok(())
+        }
+        Ok(HandshakeOutcome::Denied) => {
+            warn!("handshake with {addr:?} was not successful, closing connection");
+            _ = stream.shutdown().await;
+            Ok(())
+        }
+        Ok(HandshakeOutcome::ClosedConnection) => {
+            info!("client {addr:?} closed connection");
+            Ok(())
+        }
+        Err(err) => {
+            warn!("error reading from {addr:?}: {err}");
+            stream.write_all(b"pipeline: invalid request\n").await
+        }
+    }
+}
+
 async fn listen_to_clients(config: Arc<Config>, db: Database) -> io::Result<()> {
-    let listener = TcpListener::bind(&config.address).await?;
+    let listener = TcpListener::bind(&config.server.address).await?;
     let sem_hash = Arc::new(Semaphore::new(config.concurrency.max_hashes));
     let sem_proc = Arc::new(Semaphore::new(config.concurrency.max_processing));
 

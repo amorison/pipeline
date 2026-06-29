@@ -1,7 +1,8 @@
+use serde::{Deserialize, Serialize};
 use sqlx::{
-    Pool, Result, Sqlite, SqlitePool,
+    Pool, Result, Sqlite,
     prelude::{FromRow, Type},
-    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
+    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqliteLockingMode, SqlitePoolOptions},
 };
 use tabled::Tabled;
 
@@ -9,7 +10,7 @@ use crate::{FileSpec, cli::MarkStatus, hashing::FileDigest};
 
 static DB_FILENAME: &str = ".pipeline_server.db";
 
-#[derive(Copy, Clone, Type, Debug)]
+#[derive(Serialize, Deserialize, Copy, Clone, Type, Debug)]
 pub(super) enum ProcessStatus {
     AwaitFromClient,
     Processing,
@@ -28,7 +29,7 @@ impl From<MarkStatus> for ProcessStatus {
     }
 }
 
-#[derive(FromRow, Tabled)]
+#[derive(FromRow, Tabled, Serialize, Deserialize)]
 pub(super) struct FileInPipeline {
     hash: String,
     full_hash: bool,
@@ -86,6 +87,7 @@ impl Database {
             .connect_with(
                 SqliteConnectOptions::new()
                     .filename(DB_FILENAME)
+                    .locking_mode(SqliteLockingMode::Exclusive)
                     .journal_mode(journal_mode)
                     .create_if_missing(true),
             )
@@ -164,28 +166,23 @@ impl Database {
         Ok(())
     }
 
+    pub(super) async fn mark_done_to_prune(&self) -> Result<()> {
+        sqlx::query(
+            "UPDATE files_in_pipeline
+            SET status = 'ToPrune'
+            WHERE status = 'Done';",
+        )
+        .execute(&self.0)
+        .await?;
+        Ok(())
+    }
+
     pub(super) async fn remove(&self, hash: &str) -> Result<()> {
         sqlx::query("DELETE FROM files_in_pipeline WHERE hash = $1;")
             .bind(hash)
             .execute(&self.0)
             .await?;
         Ok(())
-    }
-}
-
-#[derive(Clone)]
-pub(super) struct DatabaseReadOnly(Pool<Sqlite>);
-
-impl DatabaseReadOnly {
-    pub(super) async fn new() -> Result<Self> {
-        let pool = SqlitePool::connect_with(
-            SqliteConnectOptions::new()
-                .filename(DB_FILENAME)
-                .read_only(true),
-        )
-        .await?;
-
-        Ok(Self(pool))
     }
 
     pub(super) async fn content(&self) -> Result<Vec<FileInPipeline>> {
