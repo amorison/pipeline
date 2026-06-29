@@ -60,6 +60,7 @@ wal = false
 # - `{client_relative_directory}` is the path to the file on the client,
 #   relative to the watched directory;
 # - `{client_file_stem}` is the file name on the client without its extension;
+# - `{client_file_name}` is the full file name on the client;
 # - `{hash}` is a unique hash identifying the file. Using it as part of the
 #   output filename of your processing command guarantees its uniqueness, so
 #   that processing different files does not overwrite output.

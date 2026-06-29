@@ -35,6 +35,7 @@ impl<'a> Replacements<'a> {
             ("{client_name}", self.file.client.as_ref()),
             ("{client_relative_directory}", self.rel_dir.as_os_str()),
             ("{client_file_stem}", self.file.file_stem()),
+            ("{client_file_name}", self.file.filename.as_ref()),
         ]
         .into_iter()
     }
