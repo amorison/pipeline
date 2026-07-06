@@ -22,7 +22,7 @@ prune_every_secs = 120
 
 # Location of the server, communication occurs via TCP.
 [server]
-address = "127.0.0.1:12345"
+address = "127.0.0.1:47890"
 
 [concurrency]
 # Maximum concurrent computations of file hashes.

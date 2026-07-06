@@ -58,7 +58,7 @@ impl CopyToServer {
 pub(crate) static DEFAULT_TOML_CONF: LazyLock<String> = LazyLock::new(|| {
     format!(
         include_str!("client/default.toml"),
-        server_conf = "[server]\naddress = \"127.0.0.1:12345\""
+        server_conf = "[server]\naddress = \"127.0.0.1:47890\""
     )
 });
 
