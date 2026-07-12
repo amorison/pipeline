@@ -1,0 +1,8 @@
+[book]
+title = "Pipeline documentation"
+authors = ["Adrien Morison"]
+language = "en"
+src = "docs"
+
+[build]
+build-dir = ".book"

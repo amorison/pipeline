@@ -2,74 +2,23 @@
 
 # Relative paths are resolved with respect to this file location.
 
-# Client name.
-# This is meant as a convenience to identify more easily the provenance of
-# files on the server side. This can also be accessed in `processing` commands
-# on the server side (via the `{{client_name}}` placeholder).
 name = "client_name"
-
-# Command to copy a file to the server for processing.
-#
-# This is a list of strings representing the command and its arguments.
-# The following placeholders are replaced at runtime:
-# - `{{client_path}}` is the absolute path of the file on the client, see
-#   the `[watching]` section for how files are discovered;
-# - `{{server_filename}}` is the name of the file as expected by the pipeline.
-#
-# This `copy_to_server` command must result in the file being copied to the
-# `incoming_directory` (see the server configuration) with file name
-# `{{server_filename}}`.
-#
-# If the server filesystem is mounted locally, you can ask pipeline to copy the
-# file instead of relying on an external process. For instance, the copy in the
-# example command can be more efficiently achieved with
-# copy_to_server = {{ destination = "./server/buckets" }}
-#
-# Finally, if the server and the client operate on the same filesystem, you can
-# ask pipeline to merely rename the file for better performance:
-# copy_to_server = {{ move_in_same_fs_to = "./server/buckets" }}
 copy_to_server = [
     "cp",
     "{{client_path}}",
     "./server/buckets/{{server_filename}}",
 ]
 
-# Location of the pipeline server, communication occurs via TCP.
 {server_conf}
 
-# Configure how the files to process are discovered.
 [watching]
-# Path of the directory to watch for new files.
 directory = "./client"
-# How often the client should look for new files in the watched directory, in
-# seconds.
 refresh_every_secs = 5
-# Maximum concurrent computations of file hashes.
 max_concurrent_hashes = 3
-# Number of refreshes before logging out a heartbeat detailing how many files
-# have been found since the last heartbeat. Set to 0 to disable heartbeat.
 heartbeat_every_refreshes = 10
 
-# List of watching groups.
-#
-# For each file in the watched directory, groups are considered in the order
-# they are defined in this configuration file. A file will end up in the first
-# group whose `filters` it passes (even if `last_modif_secs` have not elapsed
-# yet).
 [[watching.groups]]
-# Filters applying to this group. Available filters are:
-# - `extension`, checking the file extension matches the given name
-# - `min_depth` and `max_depth`, checking the depth of the file relative to
-#   the watched directory (note, the directory itself is depth 0, all files
-#   are therefore of depth 1 at least). Both values are inclusive.
 filters = {{ extension = "dat" }}
-# Which processing group should be run for these files (see server configuration).
 processing = "main"
-# How long ago the last modification should be (in seconds) for the file to be
-# considered ready for processing.
 last_modif_secs = 10
-# Whether to use full hashes (of the entire file contents), or shallow hashes.
-# It is recommended to use full hashes when possible for more robust data
-# integrity check. Shallow hashes should be reserved for when the pipeline has
-# to process large files for which computating the full hash is too slow.
 full_hash = true
