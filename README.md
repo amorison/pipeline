@@ -45,31 +45,6 @@ logs. Accepted values in order of decreasing verbosity are:
 - `warn`: only show warnings;
 - `off`: disable logging.
 
-Client
-------
-
-The client configuration file contains a `watching` section where you can
-setup the path of the directory where the client will find files to process.
-
-The `copy_to_server` option in that configuration file specifies how files to
-process should be sent to the server. You can either specify a local path where
-files can be copied/moved to, or an arbitrary command to send files to a remote
-location (e.g. via `rsync`). Note that `copy_to_server` should send the files
-to process at the location specified by the `incoming_directory` option in the
-configuration file of the server.
-
-See comments in the generated configuration file for more details.
-
-Server
-------
-
-The crux of the configuration on the server side is the `processing` option,
-which describes the command(s) that should be ran for each file sent by
-client(s). The `status_after_processing` option controls how the status of
-each task changes when the processing step is successful.
-
-See comments in the generated configuration file for more details.
-
 Acknowledgment
 --------------
 
