@@ -225,7 +225,7 @@ async fn send_file_to_server(
             fs::copy(from, destination).await.map(|_| ()).into()
         }
         CopyToServer::Command(items) => {
-            info!("copying {spec:?} to server with `{}`", &items[0]);
+            info!("copying {spec:?} to server with `{}`", items[0]);
             let rel_path = assemble_path(&server_rel_path, "");
             Command::new(&items[0])
                 .args(items[1..].iter().map(|a| {

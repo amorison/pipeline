@@ -234,7 +234,7 @@ pub(super) async fn watch_dir(
     conf: Arc<Config>,
     once: bool,
 ) -> io::Result<()> {
-    info!("watching {:?} for new files", &conf.watching.directory);
+    info!("watching {:?} for new files", conf.watching.directory);
     let mut interval = tokio::time::interval(Duration::from_secs(conf.watching.refresh_every_secs));
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     let root = conf.watching.directory.canonicalize()?;
