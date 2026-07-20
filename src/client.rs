@@ -1,7 +1,7 @@
+mod db;
 pub(crate) mod watch;
 
 use std::{
-    collections::HashSet,
     io,
     path::PathBuf,
     process::ExitStatus,
@@ -9,7 +9,9 @@ use std::{
 };
 
 use crate::{
-    FileSpec, Receipt, assemble_path, custom_serde,
+    FileSpec, Receipt, assemble_path,
+    client::db::Db,
+    custom_serde,
     framed_io::{ReadFramedJson, WriteFramedJson, json_channel},
     handshake::{self, RequestPayload},
     replace_os_strings,
@@ -26,7 +28,6 @@ use tokio::{
     sync::Mutex,
 };
 
-type Db = Arc<Mutex<HashSet<PathBuf>>>;
 type ToServer<W> = Arc<Mutex<WriteFramedJson<FileSpec, W>>>;
 
 #[derive(Deserialize, Debug)]
@@ -157,13 +158,13 @@ async fn listen_to_server(
                         continue;
                     }
                 }
-                db.lock().await.remove(&spec.relative_path());
+                db.remove(&spec.relative_path()).await;
             }
             Receipt::DifferentHash(spec) => {
                 warn!(
                     "server does not have expected hash for {spec:?}, forgetting it in case of TOCTOU condition"
                 );
-                db.lock().await.remove(&spec.relative_path());
+                db.remove(&spec.relative_path()).await;
             }
             Receipt::Error {
                 spec,
@@ -276,7 +277,7 @@ pub(crate) async fn main(config: Config, once: bool) -> io::Result<()> {
     let (from_server, to_server) = json_channel::<Receipt, FileSpec, _, _, _>(stream);
 
     let to_server = Arc::new(Mutex::new(to_server));
-    let db = Arc::new(Mutex::new(HashSet::new()));
+    let db = Db::new();
     let config = Arc::new(config);
 
     tokio::select!(

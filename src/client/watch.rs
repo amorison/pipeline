@@ -1,5 +1,4 @@
 use std::{
-    collections::HashSet,
     io,
     path::{Path, PathBuf},
     sync::Arc,
@@ -19,7 +18,7 @@ use walkdir::{DirEntry, WalkDir};
 
 use crate::{
     FileInfo, FileSpec,
-    client::{Config, Db, ToServer, WatchingFilters, WatchingGroup},
+    client::{Config, ToServer, WatchingFilters, WatchingGroup, db::Db},
     framed_io::framed_json_sink,
 };
 
@@ -58,15 +57,6 @@ impl WatchingGroup {
     }
 }
 
-async fn insert_path(db: &Db, path: &Path) -> bool {
-    let mut db = db.lock().await;
-    if db.contains(path) {
-        false
-    } else {
-        db.insert(path.to_owned())
-    }
-}
-
 async fn file_info_if_new(
     root: &Path,
     entry: &DirEntry,
@@ -98,7 +88,7 @@ async fn file_info_if_new(
                     return Ok(None);
                 };
 
-                if insert_path(db, relative_path).await {
+                if db.insert_path(relative_path).await {
                     let info = FileInfo {
                         filename: filename.to_owned(),
                         relpath: segments.join("/"),
@@ -246,7 +236,7 @@ pub(super) async fn watch_dir(
             recurse_through_files(root.clone(), to_server.clone(), db.clone(), conf.clone())
                 .await?;
         heart_beat.refresh(nfiles);
-        if once && nfiles == 0 && db.lock().await.is_empty() {
+        if once && nfiles == 0 && !db.has_found_files().await {
             heart_beat.emit();
             info!("stopping as in `start-once` mode and no new file has been found");
             break Ok(());
@@ -256,7 +246,7 @@ pub(super) async fn watch_dir(
 
 pub(crate) async fn main(config: Config) -> io::Result<()> {
     let config = Arc::new(config);
-    let db = Arc::new(Mutex::new(HashSet::new()));
+    let db = Db::new();
     let root = config.watching.directory.canonicalize()?;
     let to_server = framed_json_sink();
     let to_server = Arc::new(Mutex::new(to_server));
@@ -265,7 +255,7 @@ pub(crate) async fn main(config: Config) -> io::Result<()> {
     let duration = timer.elapsed();
     println!(
         "watched-files: found {} files to process in {:?}, took {:.3} s",
-        db.lock().await.len(),
+        db.n_found_files().await,
         config.watching.directory,
         duration.as_secs_f64(),
     );
