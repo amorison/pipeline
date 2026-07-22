@@ -1,7 +1,7 @@
+mod db;
 pub(crate) mod watch;
 
 use std::{
-    collections::HashSet,
     io,
     path::PathBuf,
     process::ExitStatus,
@@ -9,7 +9,9 @@ use std::{
 };
 
 use crate::{
-    FileSpec, Receipt, assemble_path, custom_serde,
+    FileSpec, Receipt, assemble_path,
+    client::db::Db,
+    custom_serde,
     framed_io::{ReadFramedJson, WriteFramedJson, json_channel},
     handshake::{self, RequestPayload},
     replace_os_strings,
@@ -26,15 +28,41 @@ use tokio::{
     sync::Mutex,
 };
 
-type Db = Arc<Mutex<HashSet<PathBuf>>>;
 type ToServer<W> = Arc<Mutex<WriteFramedJson<FileSpec, W>>>;
 
 #[derive(Deserialize, Debug)]
+#[serde(try_from = "ConfigRaw")]
 pub(crate) struct Config {
     name: String,
     copy_to_server: CopyToServer,
     server: ServerRoute,
     watching: Watching,
+}
+
+#[derive(Deserialize, Debug)]
+struct ConfigRaw {
+    name: String,
+    copy_to_server: CopyToServer,
+    server: ServerRoute,
+    watching: Watching,
+}
+
+impl TryFrom<ConfigRaw> for Config {
+    type Error = &'static str;
+
+    fn try_from(value: ConfigRaw) -> Result<Self, Self::Error> {
+        if value.watching.groups.iter().any(|g| g.keep_on_client)
+            && matches!(value.copy_to_server, CopyToServer::Move { .. })
+        {
+            return Err("cannot use `keep_on_client` along with `move_in_same_fs_to`");
+        }
+        Ok(Config {
+            name: value.name,
+            copy_to_server: value.copy_to_server,
+            server: value.server,
+            watching: value.watching,
+        })
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -85,6 +113,8 @@ struct WatchingGroup {
     processing: String,
     last_modif_secs: u64,
     full_hash: bool,
+    #[serde(default)]
+    keep_on_client: bool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -150,20 +180,22 @@ async fn listen_to_server(
             }
             Receipt::Received(spec) => {
                 debug!("server confirmed reception of {spec:?}");
-                if conf.copy_to_server.requires_cleanup() {
+                let rel_path = spec.relative_path();
+                if conf.copy_to_server.requires_cleanup() && !db.is_to_keep(&rel_path).await {
                     let path = conf.watched_path(&spec);
+
                     if let Err(err) = fs::remove_file(&path).await {
                         warn!("error when removing {path:?}: {err}");
                         continue;
                     }
                 }
-                db.lock().await.remove(&spec.relative_path());
+                db.received(&rel_path).await;
             }
             Receipt::DifferentHash(spec) => {
                 warn!(
                     "server does not have expected hash for {spec:?}, forgetting it in case of TOCTOU condition"
                 );
-                db.lock().await.remove(&spec.relative_path());
+                db.forget(&spec.relative_path()).await;
             }
             Receipt::Error {
                 spec,
@@ -276,7 +308,7 @@ pub(crate) async fn main(config: Config, once: bool) -> io::Result<()> {
     let (from_server, to_server) = json_channel::<Receipt, FileSpec, _, _, _>(stream);
 
     let to_server = Arc::new(Mutex::new(to_server));
-    let db = Arc::new(Mutex::new(HashSet::new()));
+    let db = Db::new();
     let config = Arc::new(config);
 
     tokio::select!(

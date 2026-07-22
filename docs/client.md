@@ -164,3 +164,9 @@ whose `filters` it passes (even if `last_modif_secs` have not elapsed yet).
   possible for more robust data integrity check. Shallow hashes should be
   reserved for when the pipeline has to process large files for which
   computing the full hash is too demanding.
+- `keep_on_client` (`false` if unspecified) requests the pipeline not to delete
+  the files that are sent for processing on the client side. This is meant for
+  workflows where those files are still being used on the client side by some
+  other process. This option should be used parsimoniously as files might
+  accumulate in the watched directory if not otherwise deleted, leading to a
+  more and more costly watching-loop with time.
