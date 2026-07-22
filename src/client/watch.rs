@@ -88,7 +88,7 @@ async fn file_info_if_new(
                     return Ok(None);
                 };
 
-                if db.insert_path(relative_path).await {
+                if db.insert_path(relative_path, group.keep_on_client).await {
                     let info = FileInfo {
                         filename: filename.to_owned(),
                         relpath: segments.join("/"),

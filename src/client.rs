@@ -31,11 +31,38 @@ use tokio::{
 type ToServer<W> = Arc<Mutex<WriteFramedJson<FileSpec, W>>>;
 
 #[derive(Deserialize, Debug)]
+#[serde(try_from = "ConfigRaw")]
 pub(crate) struct Config {
     name: String,
     copy_to_server: CopyToServer,
     server: ServerRoute,
     watching: Watching,
+}
+
+#[derive(Deserialize, Debug)]
+struct ConfigRaw {
+    name: String,
+    copy_to_server: CopyToServer,
+    server: ServerRoute,
+    watching: Watching,
+}
+
+impl TryFrom<ConfigRaw> for Config {
+    type Error = &'static str;
+
+    fn try_from(value: ConfigRaw) -> Result<Self, Self::Error> {
+        if value.watching.groups.iter().any(|g| g.keep_on_client)
+            && matches!(value.copy_to_server, CopyToServer::Move { .. })
+        {
+            return Err("cannot use `keep_on_client` along with `move_in_same_fs_to`");
+        }
+        Ok(Config {
+            name: value.name,
+            copy_to_server: value.copy_to_server,
+            server: value.server,
+            watching: value.watching,
+        })
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -86,6 +113,8 @@ struct WatchingGroup {
     processing: String,
     last_modif_secs: u64,
     full_hash: bool,
+    #[serde(default)]
+    keep_on_client: bool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -151,20 +180,22 @@ async fn listen_to_server(
             }
             Receipt::Received(spec) => {
                 debug!("server confirmed reception of {spec:?}");
-                if conf.copy_to_server.requires_cleanup() {
+                let rel_path = spec.relative_path();
+                if conf.copy_to_server.requires_cleanup() && !db.is_to_keep(&rel_path).await {
                     let path = conf.watched_path(&spec);
+
                     if let Err(err) = fs::remove_file(&path).await {
                         warn!("error when removing {path:?}: {err}");
                         continue;
                     }
                 }
-                db.remove(&spec.relative_path()).await;
+                db.received(&rel_path).await;
             }
             Receipt::DifferentHash(spec) => {
                 warn!(
                     "server does not have expected hash for {spec:?}, forgetting it in case of TOCTOU condition"
                 );
-                db.remove(&spec.relative_path()).await;
+                db.forget(&spec.relative_path()).await;
             }
             Receipt::Error {
                 spec,
