@@ -17,6 +17,7 @@ use zeroize::Zeroize;
 
 /// Configuration to connect to server.
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 #[serde(untagged)]
 pub(crate) enum ServerRoute {
     Direct { address: String },
@@ -24,6 +25,7 @@ pub(crate) enum ServerRoute {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct SshTunnelConfig {
     ssh_host: String,
     ssh_port: u16,
@@ -35,6 +37,7 @@ pub(crate) struct SshTunnelConfig {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[serde(deny_unknown_fields)]
 #[serde(tag = "method", rename_all = "kebab-case")]
 enum SshAuth {
     None { user: String },

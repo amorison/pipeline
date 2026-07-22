@@ -33,6 +33,7 @@ use tokio::{
 };
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct Config {
     incoming_directory: PathBuf,
     unix_mode: Option<u32>,
@@ -46,23 +47,27 @@ pub(crate) struct Config {
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct ServerAddress {
     address: String,
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 struct ProcessingGroup {
     processing: processing::Processing,
     after_processing: processing::AfterProcessing,
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 struct Concurrency {
     max_hashes: usize,
     max_processing: usize,
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 struct DatabaseConfig {
     wal: bool,
 }

@@ -40,6 +40,7 @@ pub(crate) struct Config {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 struct ConfigRaw {
     name: String,
     copy_to_server: CopyToServer,
@@ -66,6 +67,7 @@ impl TryFrom<ConfigRaw> for Config {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 #[serde(untagged)]
 enum CopyToServer {
     Move { move_in_same_fs_to: PathBuf },
@@ -98,6 +100,7 @@ pub(crate) static TUNNEL_TOML_CONF: LazyLock<String> = LazyLock::new(|| {
 });
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 struct Watching {
     directory: PathBuf,
     refresh_every_secs: u64,
@@ -108,6 +111,7 @@ struct Watching {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 struct WatchingGroup {
     filters: WatchingFilters,
     processing: String,
@@ -118,6 +122,7 @@ struct WatchingGroup {
 }
 
 #[derive(Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
 struct WatchingFilters {
     extension: Option<String>,
     #[serde(default)]

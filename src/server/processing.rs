@@ -46,6 +46,7 @@ impl<'a> Replacements<'a> {
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 #[serde(untagged)]
 enum Step {
     Mkdir { create_directory: String },
@@ -85,6 +86,7 @@ impl Step {
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 enum InnerProc {
     #[serde(rename = "pass")]
     Pass,
@@ -95,9 +97,11 @@ enum InnerProc {
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub(super) struct Processing(InnerProc);
 
 #[derive(Deserialize, Debug, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub(super) enum AfterProcessing {
     #[serde(rename = "pass")]
     Pass,
@@ -108,6 +112,7 @@ pub(super) enum AfterProcessing {
 }
 
 #[derive(Deserialize, Debug, PartialEq, Eq, Copy, Clone)]
+#[serde(deny_unknown_fields)]
 pub(super) enum StatusAfterProcessing {
     Done,
     ToPrune,
