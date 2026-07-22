@@ -1,15 +1,15 @@
-use std::io;
+use std::{io, sync::Arc};
 
 use log::warn;
 use serde::Deserialize;
 use tabled::{Table, settings::Style};
-use tokio::net::TcpStream;
+use tokio::{net::TcpStream, sync::Mutex};
 
 use crate::{
     cli::MarkStatus,
     framed_io::json_channel,
     handshake::{self, RequestPayload},
-    server::{Database, database::FileInPipeline},
+    server::{Database, Status, database::FileInPipeline},
     server_route::ServerRoute,
 };
 use futures_util::{TryStreamExt, sink::SinkExt};
@@ -44,7 +44,19 @@ impl Query {
             }
             Query::PruneDone => Ok(()),
             Query::Status => {
-                println!("pipeline server is online");
+                let (mut from_server, _) = json_channel::<Status, (), _, _, _>(stream);
+                let status = from_server
+                    .try_next()
+                    .await?
+                    .expect("should have exactly one answer");
+                let mut table = status.tally_table();
+                table.with(
+                    Style::markdown()
+                        .remove_vertical()
+                        .remove_left()
+                        .remove_right(),
+                );
+                println!("{table}");
                 Ok(())
             }
         }
@@ -101,6 +113,15 @@ pub(super) async fn process_prune_done_query(db: Database) -> io::Result<()> {
         warn!("error marking 'done' tasks to prune: {err}");
     }
     Ok(())
+}
+
+pub(super) async fn process_status_query(
+    stream: TcpStream,
+    status: Arc<Mutex<Status>>,
+) -> io::Result<()> {
+    let status = status.lock().await;
+    let (_, mut to_client) = json_channel::<(), Status, _, _, _>(stream);
+    to_client.send(status.clone()).await
 }
 
 #[cfg(test)]

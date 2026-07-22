@@ -3,6 +3,7 @@ pub(crate) mod create_buckets;
 pub(crate) mod database;
 mod processing;
 pub(crate) mod query;
+mod status;
 
 use std::{
     collections::HashMap,
@@ -18,7 +19,7 @@ use crate::{
     framed_io::{Splittable, WriteFramedJson, json_channel},
     handshake::{self, ClientKind, HandshakeOutcome},
     hashing::FileDigest,
-    server::clean::clean_tasks_with_status,
+    server::{clean::clean_tasks_with_status, status::Status},
 };
 use database::{Database, ProcessStatus};
 use futures_util::{SinkExt, TryStreamExt};
@@ -138,6 +139,7 @@ async fn processing_pipeline<W: AsyncWriteExt + Unpin>(
     db: Database,
     sem_hash: Arc<Semaphore>,
     sem_proc: Arc<Semaphore>,
+    server_status: Arc<Mutex<Status>>,
 ) {
     let server_path = config.path_of(&file);
 
@@ -173,6 +175,10 @@ async fn processing_pipeline<W: AsyncWriteExt + Unpin>(
             Ok(received_hash) => {
                 if file.sha256_digest == received_hash {
                     debug!("{file:?} found");
+                    server_status
+                        .lock()
+                        .await
+                        .received(&file.client, &file.processing);
                     Receipt::Received(file.clone())
                 } else {
                     warn!(
@@ -273,6 +279,7 @@ async fn listen_to_processing_client<R, W, S>(
     db: Database,
     sem_hash: Arc<Semaphore>,
     sem_proc: Arc<Semaphore>,
+    server_status: Arc<Mutex<Status>>,
 ) -> io::Result<()>
 where
     S: Splittable<R, W>,
@@ -291,6 +298,7 @@ where
             db.clone(),
             sem_hash.clone(),
             sem_proc.clone(),
+            server_status.clone(),
         ));
     }
 
@@ -305,13 +313,15 @@ async fn handle_client(
     db: Database,
     sem_hash: Arc<Semaphore>,
     sem_proc: Arc<Semaphore>,
+    server_status: Arc<Mutex<Status>>,
 ) -> io::Result<()> {
     debug!("got connection request from {addr:?}");
 
     match handshake::server_side(&mut stream, &config).await {
         Ok(HandshakeOutcome::Success(ClientKind::Processing)) => {
             info!("handshake with processing client {addr:?} was successful");
-            listen_to_processing_client(stream, addr, config, db, sem_hash, sem_proc).await
+            listen_to_processing_client(stream, addr, config, db, sem_hash, sem_proc, server_status)
+                .await
         }
         Ok(HandshakeOutcome::Success(ClientKind::Mark { hash, status })) => {
             info!("received mark request from {addr:?}");
@@ -327,7 +337,7 @@ async fn handle_client(
         }
         Ok(HandshakeOutcome::Success(ClientKind::Status)) => {
             info!("received status request from {addr:?}");
-            Ok(())
+            query::process_status_query(stream, server_status.clone()).await
         }
         Ok(HandshakeOutcome::Denied) => {
             warn!("handshake with {addr:?} was not successful, closing connection");
@@ -349,6 +359,7 @@ async fn listen_to_clients(config: Arc<Config>, db: Database) -> io::Result<()> 
     let listener = TcpListener::bind(&config.server.address).await?;
     let sem_hash = Arc::new(Semaphore::new(config.concurrency.max_hashes));
     let sem_proc = Arc::new(Semaphore::new(config.concurrency.max_processing));
+    let server_status = Arc::new(Mutex::new(Status::new()));
 
     info!("listening on {:?}", listener.local_addr());
 
@@ -361,6 +372,7 @@ async fn listen_to_clients(config: Arc<Config>, db: Database) -> io::Result<()> 
             db.clone(),
             sem_hash.clone(),
             sem_proc.clone(),
+            server_status.clone(),
         ));
     }
 }
