@@ -18,7 +18,10 @@ use walkdir::{DirEntry, WalkDir};
 
 use crate::{
     FileInfo, FileSpec,
-    client::{Config, ToServer, WatchingFilters, WatchingGroup, db::Db},
+    client::{
+        Config, ToServer, WatchingFilters, WatchingGroup,
+        db::{Db, DbInWatchLoop},
+    },
     framed_io::framed_json_sink,
 };
 
@@ -60,7 +63,7 @@ impl WatchingGroup {
 async fn file_info_if_new(
     root: &Path,
     entry: &DirEntry,
-    db: &Db,
+    db: &DbInWatchLoop,
     conf: &Config,
 ) -> io::Result<Option<FileInfo>> {
     for group in &conf.watching.groups {
@@ -112,7 +115,7 @@ async fn examine_file<W: AsyncWrite + Unpin>(
     root: PathBuf,
     entry: DirEntry,
     to_server: ToServer<W>,
-    db: Db,
+    db: DbInWatchLoop,
     conf: Arc<Config>,
     semaphore: Arc<Semaphore>,
 ) -> io::Result<bool> {
@@ -160,10 +163,11 @@ async fn recurse_through_files<W: AsyncWrite + Unpin + Send + 'static>(
         .into_iter()
         .filter_map(filter_dir_entry)
         .filter(|e| e.file_type().is_file());
+    let db_in_loop = db.start_watch_loop();
     for entry in walker {
         let root = root.clone();
         let to_server = to_server.clone();
-        let db = db.clone();
+        let db = db_in_loop.clone();
         let conf = conf.clone();
         let semaphore = semaphore.clone();
         examined_files.push(tokio::spawn(async move {
@@ -171,6 +175,7 @@ async fn recurse_through_files<W: AsyncWrite + Unpin + Send + 'static>(
         }));
         yield_now().await;
     }
+    db_in_loop.end_watch_loop().await;
     for f in examined_files {
         if f.await?? {
             found_files += 1;
