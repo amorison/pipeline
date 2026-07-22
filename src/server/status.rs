@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tabled::{Table, builder::Builder};
 
@@ -8,12 +9,14 @@ struct ClientTally(HashMap<String, u64>);
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct Status {
+    start_time: DateTime<Utc>,
     tally: HashMap<String, ClientTally>,
 }
 
 impl Status {
     pub(super) fn new() -> Self {
         Self {
+            start_time: Utc::now(),
             tally: HashMap::new(),
         }
     }
@@ -27,6 +30,10 @@ impl Status {
             .entry(processing.to_owned())
             .or_insert(0);
         *count += 1;
+    }
+
+    pub(super) fn start_time(&self) -> &DateTime<Utc> {
+        &self.start_time
     }
 
     pub(super) fn tally_table(&self) -> Table {

@@ -1,5 +1,6 @@
 use std::{io, sync::Arc};
 
+use chrono::{Local, SecondsFormat};
 use log::warn;
 use serde::Deserialize;
 use tabled::{Table, settings::Style};
@@ -49,6 +50,16 @@ impl Query {
                     .try_next()
                     .await?
                     .expect("should have exactly one answer");
+                let start_utc = status
+                    .start_time()
+                    .to_rfc3339_opts(SecondsFormat::Secs, true);
+                let start_local = status
+                    .start_time()
+                    .with_timezone(&Local)
+                    .to_rfc3339_opts(SecondsFormat::Secs, false);
+                println!("server has been running since {start_utc}");
+                println!("(local {start_local})");
+                println!("number of files received:\n");
                 let mut table = status.tally_table();
                 table.with(
                     Style::markdown()
