@@ -40,9 +40,18 @@ pub(crate) struct SshTunnelConfig {
 #[serde(deny_unknown_fields)]
 #[serde(tag = "method", rename_all = "kebab-case")]
 enum SshAuth {
-    None { user: String },
-    Password { user: String },
-    Key { user: String, public_key: PathBuf },
+    None {
+        user: String,
+    },
+    Password {
+        user: String,
+    },
+    Key {
+        user: String,
+        public_key: PathBuf,
+        #[serde(default)]
+        agent: Option<String>,
+    },
 }
 
 struct Client {
@@ -101,14 +110,26 @@ async fn create_session(client: Client, conf: &SshTunnelConfig) -> Handle<Client
             pwd.zeroize();
             auth_result.expect("Failed to authenticate")
         }
-        SshAuth::Key { user, public_key } => {
+        SshAuth::Key {
+            user,
+            public_key,
+            agent,
+        } => {
             info!("authenticate as {user} with key");
             let public_key = PublicKey::read_openssh_file(public_key).expect("failed to parse key");
             let agent = cfg_select! {
-                unix => { AgentClient::connect_env().await }
+                unix => {{
+                    match agent {
+                        None => AgentClient::connect_env().await,
+                        Some(socket_path) => AgentClient::connect_uds(socket_path).await,
+                    }
+                }}
                 windows => {{
-                    let pipe = std::env::var("SSH_AUTH_SOCK")
-                        .unwrap_or_else(|_| r"\\.\pipe\openssh-ssh-agent".to_owned());
+                    let pipe = match agent {
+                        None => std::env::var("SSH_AUTH_SOCK")
+                            .unwrap_or_else(|_| r"\\.\pipe\openssh-ssh-agent".to_owned()),
+                        Some(socket_path) => socket_path.to_owned(),
+                    };
                     AgentClient::connect_named_pipe(&pipe).await
                 }}
             };

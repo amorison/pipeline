@@ -98,6 +98,7 @@ accepted_ssh_keys = []
       ```toml
       ssh_auth = { method = "key", user = "user", public_key = "path/to/key.pub" }
       ```
+      You can also specify the SSH socket to use with `agent = 'path/to/socket'`.
 - `keepalive_every_secs` sends a keepalive request if no communication occurs
   for this duration in seconds.
 - `server_addr_from_host` and `server_port_from_host` specify the network
