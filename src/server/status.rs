@@ -4,6 +4,33 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tabled::{Table, builder::Builder};
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct Counter(HashMap<String, u32>);
+
+impl Counter {
+    fn new() -> Self {
+        Self(HashMap::new())
+    }
+
+    fn add(&mut self, name: String) {
+        let count = self.0.entry(name).or_default();
+        *count += 1;
+    }
+
+    fn remove(&mut self, name: &str) {
+        if let Some(v) = self.0.get_mut(name) {
+            *v -= 1;
+            if *v == 0 {
+                self.0.remove(name);
+            }
+        }
+    }
+
+    fn iter(&self) -> impl Iterator<Item = (&String, &u32)> {
+        self.0.iter()
+    }
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 struct ClientTally(HashMap<String, u64>);
 
@@ -11,6 +38,7 @@ struct ClientTally(HashMap<String, u64>);
 pub(super) struct Status {
     start_time: DateTime<Utc>,
     tally: HashMap<String, ClientTally>,
+    clients: Counter,
 }
 
 impl Status {
@@ -18,6 +46,7 @@ impl Status {
         Self {
             start_time: Utc::now(),
             tally: HashMap::new(),
+            clients: Counter::new(),
         }
     }
 
@@ -69,5 +98,17 @@ impl Status {
             builder.push_record(&rec);
         }
         builder.index().column(0).name(None).build()
+    }
+
+    pub(super) fn client_connected(&mut self, name: String) {
+        self.clients.add(name);
+    }
+
+    pub(super) fn client_disconnected(&mut self, name: &str) {
+        self.clients.remove(name);
+    }
+
+    pub(super) fn clients(&self) -> impl Iterator<Item = (&String, &u32)> {
+        self.clients.iter()
     }
 }

@@ -318,10 +318,21 @@ async fn handle_client(
     debug!("got connection request from {addr:?}");
 
     match handshake::server_side(&mut stream, &config).await {
-        Ok(HandshakeOutcome::Success(ClientKind::Processing)) => {
-            info!("handshake with processing client {addr:?} was successful");
-            listen_to_processing_client(stream, addr, config, db, sem_hash, sem_proc, server_status)
-                .await
+        Ok(HandshakeOutcome::Success(ClientKind::Processing { name })) => {
+            info!("handshake with processing client {name} at {addr:?} was successful");
+            server_status.lock().await.client_connected(name.clone());
+            let out = listen_to_processing_client(
+                stream,
+                addr,
+                config,
+                db,
+                sem_hash,
+                sem_proc,
+                server_status.clone(),
+            )
+            .await;
+            server_status.lock().await.client_disconnected(&name);
+            out
         }
         Ok(HandshakeOutcome::Success(ClientKind::Mark { hash, status })) => {
             info!("received mark request from {addr:?}");

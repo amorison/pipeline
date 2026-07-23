@@ -58,16 +58,26 @@ impl Query {
                     .with_timezone(&Local)
                     .to_rfc3339_opts(SecondsFormat::Secs, false);
                 println!("server has been running since {start_utc}");
-                println!("(local {start_local})");
-                println!("number of files received:\n");
-                let mut table = status.tally_table();
-                table.with(
+                println!("(local {start_local})\n");
+                println!("Number of files received:\n");
+                let mut tally_table = status.tally_table();
+                tally_table.with(
                     Style::markdown()
                         .remove_vertical()
                         .remove_left()
                         .remove_right(),
                 );
-                println!("{table}");
+                println!("{tally_table}");
+                println!();
+                println!("Clients currently connected:");
+                for (name, &count) in status.clients() {
+                    let count_str = if count == 1 {
+                        String::new()
+                    } else {
+                        format!(" ({count})")
+                    };
+                    println!("  - {name}{count_str}");
+                }
                 Ok(())
             }
         }

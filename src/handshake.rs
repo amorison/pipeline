@@ -21,7 +21,7 @@ struct Request {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) enum RequestPayload {
-    ProcessingClient { groups: Vec<String> },
+    ProcessingClient { name: String, groups: Vec<String> },
     Mark { hash: String, status: MarkStatus },
     List,
     PruneDone,
@@ -42,7 +42,7 @@ pub(crate) enum HandshakeOutcome {
 }
 
 pub(crate) enum ClientKind {
-    Processing,
+    Processing { name: String },
     Mark { hash: String, status: MarkStatus },
     List,
     PruneDone,
@@ -68,14 +68,14 @@ where
             return Ok(HandshakeOutcome::Denied);
         }
         match msg.payload {
-            RequestPayload::ProcessingClient { groups } => {
+            RequestPayload::ProcessingClient { name, groups } => {
                 let unknown_groups: Vec<_> = groups
                     .into_iter()
                     .filter(|g| !config.is_proc_group(g))
                     .collect();
                 if unknown_groups.is_empty() {
                     to_client.send(Answer::Ok).await?;
-                    Ok(HandshakeOutcome::Success(ClientKind::Processing))
+                    Ok(HandshakeOutcome::Success(ClientKind::Processing { name }))
                 } else {
                     to_client
                         .send(Answer::UnknownGroups(unknown_groups))

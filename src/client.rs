@@ -304,6 +304,7 @@ pub(crate) async fn main(config: Config, once: bool) -> io::Result<()> {
     let mut stream = config.server.connect().await;
 
     let payload = RequestPayload::ProcessingClient {
+        name: config.name.to_owned(),
         groups: config.processing_groups(),
     };
     if !handshake::client_side(&mut stream, payload).await? {
