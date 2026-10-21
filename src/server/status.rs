@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use chrono::{DateTime, Utc};
+use jiff::Zoned;
 use serde::{Deserialize, Serialize};
 use tabled::{Table, builder::Builder};
 
@@ -36,7 +36,7 @@ struct ClientTally(HashMap<String, u64>);
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(super) struct Status {
-    start_time: DateTime<Utc>,
+    start_time: Zoned,
     tally: HashMap<String, ClientTally>,
     clients: Counter,
 }
@@ -44,7 +44,7 @@ pub(super) struct Status {
 impl Status {
     pub(super) fn new() -> Self {
         Self {
-            start_time: Utc::now(),
+            start_time: Zoned::now(),
             tally: HashMap::new(),
             clients: Counter::new(),
         }
@@ -61,7 +61,7 @@ impl Status {
         *count += 1;
     }
 
-    pub(super) fn start_time(&self) -> &DateTime<Utc> {
+    pub(super) fn start_time(&self) -> &Zoned {
         &self.start_time
     }
 

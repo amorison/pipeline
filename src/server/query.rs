@@ -1,6 +1,6 @@
 use std::{io, sync::Arc};
 
-use chrono::{Local, SecondsFormat};
+use jiff::{Unit, tz::TimeZone};
 use log::warn;
 use serde::Deserialize;
 use tabled::{Table, settings::Style};
@@ -50,15 +50,13 @@ impl Query {
                     .try_next()
                     .await?
                     .expect("should have exactly one answer");
-                let start_utc = status
+                let tz = TimeZone::try_system().unwrap_or(TimeZone::UTC);
+                let start_time = status
                     .start_time()
-                    .to_rfc3339_opts(SecondsFormat::Secs, true);
-                let start_local = status
-                    .start_time()
-                    .with_timezone(&Local)
-                    .to_rfc3339_opts(SecondsFormat::Secs, false);
-                println!("server has been running since {start_utc}");
-                println!("(local {start_local})\n");
+                    .with_time_zone(tz)
+                    .round(Unit::Second)
+                    .expect("rounding to nearest second failed");
+                println!("server has been running since {start_time}\n");
                 println!("Number of files received:\n");
                 let mut tally_table = status.tally_table();
                 tally_table.with(
