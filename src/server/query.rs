@@ -1,6 +1,6 @@
 use std::{io, sync::Arc};
 
-use jiff::{Unit, tz::TimeZone};
+use jiff::{Unit, Zoned, ZonedDifference, tz::TimeZone};
 use log::warn;
 use serde::Deserialize;
 use tabled::{Table, settings::Style};
@@ -56,7 +56,16 @@ impl Query {
                     .with_time_zone(tz)
                     .round(Unit::Second)
                     .expect("rounding to nearest second failed");
-                println!("server has been running since {start_time}\n");
+                let run_time = status
+                    .start_time()
+                    .until(
+                        ZonedDifference::new(&Zoned::now())
+                            .smallest(Unit::Minute)
+                            .largest(Unit::Year)
+                            .mode(jiff::RoundMode::Ceil),
+                    )
+                    .expect("computing elapsed time failed");
+                println!("server has been running since {start_time} ({run_time:#} ago)\n");
                 println!("Number of files received:\n");
                 let mut tally_table = status.tally_table();
                 tally_table.with(
