@@ -3,6 +3,7 @@ use std::time::Duration;
 use std::{collections::HashSet, sync::Arc};
 
 use log::{info, warn};
+use russh::keys::PublicKeyOrCertificate;
 use russh::keys::agent::client::AgentClient;
 use russh::{
     client::{self as ssh_client, Handle},
@@ -70,8 +71,9 @@ impl ssh_client::Handler for Client {
 
     async fn check_server_key(
         &mut self,
-        server_public_key: &PublicKey,
+        server_public_key: &PublicKeyOrCertificate,
     ) -> Result<bool, Self::Error> {
+        let server_public_key = server_public_key.public_key();
         let ossh = server_public_key.to_openssh()?;
         if self.accepted_keys.contains(server_public_key.key_data()) {
             info!("accepted connection to {ossh}");
