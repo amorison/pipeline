@@ -129,6 +129,7 @@ be manually marked as done, failed or to-prune by calling
 ```sh
 pipeline query mark query.toml {hash} done|failed|to-prune
 ```
+See [the queries section](query.md).
 
 ## Retrying failed tasks
 
