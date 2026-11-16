@@ -1,5 +1,4 @@
 use std::{
-    ffi::OsStr,
     io::{self, Read},
     path::Path,
 };
@@ -9,7 +8,7 @@ use log::debug;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::FileSpec;
+use crate::{FileInfo, FileSpec};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub(crate) enum FileDigest {
@@ -18,17 +17,12 @@ pub(crate) enum FileDigest {
 }
 
 impl FileDigest {
-    pub(crate) fn new(path: &Path, full: bool) -> io::Result<Self> {
-        if full {
-            Self::new_helper(path, full, "", 0)
+    pub(crate) fn new(path: &Path, info: &FileInfo) -> io::Result<Self> {
+        if info.full_hash {
+            Self::new_helper(path, info.full_hash, "", 0)
         } else {
-            let name = path
-                .file_name()
-                .map(OsStr::to_str)
-                .expect("failed to get filename")
-                .expect("failed to convert filename to utf8");
             let size = path.metadata()?.len();
-            Self::new_helper(path, full, name, size)
+            Self::new_helper(path, info.full_hash, &info.filename, size)
         }
     }
 
