@@ -17,7 +17,7 @@ pub(crate) enum FileDigest {
 }
 
 impl FileDigest {
-    pub(crate) fn new(path: &Path, info: &FileInfo) -> io::Result<Self> {
+    pub(crate) fn with_info(path: &Path, info: &FileInfo) -> io::Result<Self> {
         if info.full_hash {
             Self::new_helper(path, info.full_hash, "", 0)
         } else {

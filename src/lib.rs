@@ -56,7 +56,7 @@ struct FileInfo {
 impl FileSpec {
     fn new<S: Into<String>>(client: S, client_path: &Path, info: FileInfo) -> io::Result<Self> {
         let client = client.into();
-        let sha256_digest = FileDigest::new(client_path, &info)?;
+        let sha256_digest = FileDigest::with_info(client_path, &info)?;
         Ok(FileSpec {
             client,
             path: info.relpath,
