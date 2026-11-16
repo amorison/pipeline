@@ -1,10 +1,13 @@
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 use sqlx::{
-    Pool, Result, Sqlite,
+    Result, SqlitePool,
     prelude::{FromRow, Type},
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqliteLockingMode, SqlitePoolOptions},
 };
 use tabled::Tabled;
+use tokio::sync::{Semaphore, SemaphorePermit};
 
 use crate::{FileSpec, cli::MarkStatus, hashing::FileDigest};
 
@@ -73,7 +76,10 @@ impl AsRef<str> for ProcessStatus {
 }
 
 #[derive(Clone)]
-pub(super) struct Database(Pool<Sqlite>);
+pub(super) struct Database {
+    pool: SqlitePool,
+    semaphore: Arc<Semaphore>,
+}
 
 impl Database {
     pub(super) async fn create_if_missing(wal: bool) -> Result<Self> {
@@ -108,34 +114,48 @@ impl Database {
         .execute(&pool)
         .await?;
 
-        Ok(Self(pool))
+        Ok(Self {
+            pool,
+            semaphore: Arc::new(Semaphore::new(8)),
+        })
+    }
+
+    async fn get_permit(&self) -> SemaphorePermit<'_> {
+        self.semaphore
+            .acquire()
+            .await
+            .expect("semaphore should not be closed")
     }
 
     pub(super) async fn tasks_with_status(
         &self,
         status: ProcessStatus,
     ) -> Result<Vec<FileInPipeline>> {
+        let _permit = self.get_permit();
         sqlx::query_as("SELECT * FROM files_in_pipeline WHERE status = $1;")
             .bind(status.as_ref())
-            .fetch_all(&self.0)
+            .fetch_all(&self.pool)
             .await
     }
 
     pub(super) async fn status(&self, hash: &str) -> Result<ProcessStatus> {
+        let _permit = self.get_permit();
         sqlx::query_scalar("SELECT status FROM files_in_pipeline WHERE hash = $1;")
             .bind(hash)
-            .fetch_one(&self.0)
+            .fetch_one(&self.pool)
             .await
     }
 
     pub(super) async fn contains(&self, hash: &str) -> Result<bool> {
+        let _permit = self.get_permit();
         sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM files_in_pipeline WHERE hash = $1);")
             .bind(hash)
-            .fetch_one(&self.0)
+            .fetch_one(&self.pool)
             .await
     }
 
     pub(super) async fn insert_new(&self, file: &FileSpec) -> Result<()> {
+        let _permit = self.get_permit();
         sqlx::query(
             "INSERT INTO files_in_pipeline
             (hash, full_hash, client, date_utc, path, file_name, processing, status)
@@ -148,12 +168,13 @@ impl Database {
         .bind(&file.filename)
         .bind(&file.processing)
         .bind(ProcessStatus::AwaitFromClient.as_ref())
-        .execute(&self.0)
+        .execute(&self.pool)
         .await?;
         Ok(())
     }
 
     pub(super) async fn update_status(&self, hash: &str, status: ProcessStatus) -> Result<()> {
+        let _permit = self.get_permit();
         sqlx::query(
             "UPDATE files_in_pipeline
             SET date_utc = datetime('now'), status = $2
@@ -161,33 +182,36 @@ impl Database {
         )
         .bind(hash)
         .bind(status.as_ref())
-        .execute(&self.0)
+        .execute(&self.pool)
         .await?;
         Ok(())
     }
 
     pub(super) async fn mark_done_to_prune(&self) -> Result<()> {
+        let _permit = self.get_permit();
         sqlx::query(
             "UPDATE files_in_pipeline
             SET status = 'ToPrune'
             WHERE status = 'Done';",
         )
-        .execute(&self.0)
+        .execute(&self.pool)
         .await?;
         Ok(())
     }
 
     pub(super) async fn remove(&self, hash: &str) -> Result<()> {
+        let _permit = self.get_permit();
         sqlx::query("DELETE FROM files_in_pipeline WHERE hash = $1;")
             .bind(hash)
-            .execute(&self.0)
+            .execute(&self.pool)
             .await?;
         Ok(())
     }
 
     pub(super) async fn content(&self) -> Result<Vec<FileInPipeline>> {
+        let _permit = self.get_permit();
         sqlx::query_as("SELECT * FROM files_in_pipeline;")
-            .fetch_all(&self.0)
+            .fetch_all(&self.pool)
             .await
     }
 }
