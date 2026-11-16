@@ -19,14 +19,20 @@ pub(crate) enum FileDigest {
 impl FileDigest {
     pub(crate) fn with_info(path: &Path, info: &FileInfo) -> io::Result<Self> {
         if info.full_hash {
-            Self::new_helper(path, info.full_hash, "", 0)
+            Self::new_helper(path, info.full_hash, "", "", 0)
         } else {
             let size = path.metadata()?.len();
-            Self::new_helper(path, info.full_hash, &info.filename, size)
+            Self::new_helper(path, info.full_hash, &info.relpath, &info.filename, size)
         }
     }
 
-    fn new_helper(path: &Path, full: bool, name: &str, size: u64) -> io::Result<Self> {
+    fn new_helper(
+        path: &Path,
+        full: bool,
+        relative_path: &str,
+        name: &str,
+        size: u64,
+    ) -> io::Result<Self> {
         if full {
             debug!("computing full hash for {path:?}");
         } else {
@@ -40,6 +46,7 @@ impl FileDigest {
             io::copy(&mut reader, &mut hasher)?;
             hasher.0.finalize()
         } else {
+            hasher.update(relative_path);
             hasher.update(name);
             hasher.update(size.to_le_bytes());
             let mut data = vec![0; 1024 * 1024];
@@ -64,9 +71,9 @@ impl FileDigest {
         match &spec.sha256_digest {
             Self::Shallow(_) => {
                 let size = path.metadata()?.len();
-                Self::new_helper(path, false, &spec.filename, size)
+                Self::new_helper(path, false, &spec.path, &spec.filename, size)
             }
-            Self::Full(_) => Self::new_helper(path, true, "", 0),
+            Self::Full(_) => Self::new_helper(path, true, "", "", 0),
         }
     }
 
