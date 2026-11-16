@@ -66,6 +66,11 @@ enum ClientCmd {
         #[arg(long)]
         ssh_tunnel: bool,
     },
+    /// Check configuration file
+    CheckConfig {
+        /// Configuration file path
+        path: PathBuf,
+    },
 }
 
 #[derive(Subcommand)]
@@ -79,6 +84,11 @@ enum ServerCmd {
     Config {
         /// Print configuration to this file, otherwise stdout
         path: Option<PathBuf>,
+    },
+    /// Check configuration file
+    CheckConfig {
+        /// Configuration file path
+        path: PathBuf,
     },
     /// Remove already processed files on server
     Clean {
@@ -179,6 +189,7 @@ async fn client_cli(cmd: ClientCmd) -> io::Result<()> {
             }
             Ok(())
         }
+        ClientCmd::CheckConfig { path } => read_conf_and_chdir::<client::Config>(&path).map(|_| ()),
     }
 }
 
@@ -193,6 +204,7 @@ async fn server_cli(cmd: ServerCmd) -> io::Result<()> {
             }
             Ok(())
         }
+        ServerCmd::CheckConfig { path } => read_conf_and_chdir::<server::Config>(&path).map(|_| ()),
         ServerCmd::Clean { config, done } => {
             server::clean::main(read_conf_and_chdir(&config)?, done).await
         }
